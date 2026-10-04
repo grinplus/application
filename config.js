@@ -55,11 +55,11 @@ window.SITE_CONFIG = {
   },
 
   /* ---------- 데이터 저장 방식 ----------
+     "/api" : 운영 모드 — 이 사이트의 서버(server.js)가 Railway PostgreSQL 에 저장합니다.
      url 을 비워 두면 '체험 모드' : 투표·신청·출석·제출이 이 브라우저에만 저장됩니다.
-     실제 수업에서 쓰려면 backend 폴더의 google-apps-script.gs 안내에 따라
-     구글 시트/드라이브와 연결한 뒤, 발급된 웹 앱 주소를 url 에 붙여 넣으세요.      */
+     (backend 폴더의 google-apps-script.gs 웹 앱 주소를 넣으면 구글 시트에 저장할 수도 있습니다) */
   backend: {
-    url: ""
+    url: "/api"
   },
 
   /* ---------- 첫 방문 안내 팝업 ---------- */
