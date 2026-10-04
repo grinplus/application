@@ -198,8 +198,9 @@
     if (has && !can) { ssSet("rw_full_weeks", null); accessBusy = true; location.reload(); return; }
     if (!has && can && weeksLocked()) {
       accessBusy = true;
-      const req = X.adminToken ? { adminToken: X.adminToken } : { sid: session.sid, token: session.token };
-      api("getWeeks", req)
+      // 관리자 로그인이 있으면 먼저 시도하고, 실패하면(만료 등) 수강생 로그인으로 다시 시도
+      const asStudent = () => (session ? api("getWeeks", { sid: session.sid, token: session.token }) : Promise.reject(new Error("no session")));
+      (X.adminToken ? api("getWeeks", { adminToken: X.adminToken }).catch(asStudent) : asStudent())
         .then((r) => {
           if (!Array.isArray(r.weeks)) return;
           ssSet("rw_full_weeks", JSON.stringify(r.weeks));
@@ -588,7 +589,7 @@
      ========================================================= */
   const stuBox = body("student");
   let pendingWeek = null;                        // '과제 제출하기' 버튼으로 들어온 주차
-  const hwWeeks = weeks.filter((w) => w.assignment);
+  const hwWeeks = weeks.filter((w) => w.assignment && w.due);
   const todayWeek = () => weeks.find((w) => keyOf(w.date) === keyOf(today())) || null;
 
   /* ---------- 수강생 로그인 (학번 + 이름) — 오른쪽 위 'Log in' 버튼 팝업과 출석 섹션에서 같이 씀 ---------- */
@@ -749,7 +750,21 @@
         <div class="att-today" id="attToday">Loading…</div>
         <div class="att-grid" id="attGrid"></div>
         <div class="att-summary" id="attSummary"></div>
-        <p class="att-hint">To submit an assignment, open the week in <a href="#${esc((C.curriculum && C.curriculum.id) || "curriculum")}">Weekly Lessons</a> and click <b>Submit assignment</b>.</p>
+      </div>
+      <div class="card my-hw">
+        <h3>My assignments</h3>
+        ${hwWeeks.length ? `<ul class="hw-list" id="hwList">${hwWeeks.map((w) => {
+          const r = remain(w.due);
+          const closed = r.cls === "closed" && !(C.student && C.student.allowLate);
+          return `<li data-hw="${w.no}">
+            <span class="hw-week">Week ${w.no}</span>
+            <span class="hw-main"><b>${esc(w.assignment.title)}</b><small>Due ${esc(fmtDateTime(w.due))}</small></span>
+            <span class="hw-state" data-hw-state="${w.no}"><span class="chip hw ${r.cls}">${esc(r.dday)}</span></span>
+            ${closed ? `<span class="btn small disabled" aria-disabled="true">Closed</span>`
+                     : `<button type="button" class="btn small" data-submit-week="${w.no}">Submit</button>`}
+          </li>`;
+        }).join("")}</ul>` : `<p class="muted">There are no assignments yet.</p>`}
+        <p class="att-hint">You can also submit from each week in <a href="#${esc((C.curriculum && C.curriculum.id) || "curriculum")}">Weekly Lessons</a>.</p>
       </div>`;
 
     $("#logoutBtn").addEventListener("click", doLogout);
@@ -842,6 +857,11 @@
   // 주차별 강의의 과제 상자에 '제출함' 표시
   const markSubmitted = (subs) => {
     (subs || []).forEach((s) => {
+      // 'My assignments' 목록의 상태
+      const st = $(`[data-hw-state="${s.week}"]`);
+      if (st) st.innerHTML = `<span class="chip now">✓ Submitted ${esc(hhmm(s.at))}${s.late ? " · late" : ""}</span>`;
+      const li = $(`[data-hw="${s.week}"] [data-submit-week]`);
+      if (li) li.textContent = "Resubmit";
       const box = $(`#week-${s.week} .assignment`);
       if (!box) return;
       let tag = $(".as-submitted", box);
