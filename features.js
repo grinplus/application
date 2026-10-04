@@ -779,6 +779,202 @@
   }
 
   /* =========================================================
+     3-0. 주차별 강의 추가 · 수정 · 삭제 (관리자)
+          운영 모드: 서버 DB 에 저장 → 모든 방문자에게 반영 / 체험 모드: 이 브라우저에만 저장
+     ========================================================= */
+  const curSec = C.curriculum ? $(`#${C.curriculum.id || "curriculum"}`) : null;
+  if (curSec) {
+    const rawWeeks = () => JSON.parse(JSON.stringify(C.curriculum.weeks || []));
+    const syncWeekAdmin = () => $$(".admin-only", curSec).forEach((el) => { el.hidden = !X.adminToken; });
+    document.addEventListener("rw-admin", syncWeekAdmin);
+    syncWeekAdmin();
+
+    // 저장 후 새로고침되면 그 주차를 펼쳐 보여 줌
+    try {
+      const back = sessionStorage.getItem("rw_week_saved");
+      if (back) {
+        sessionStorage.removeItem("rw_week_saved");
+        const [no, text] = back.split("|");
+        const d = $(`#week-${no}`);
+        if (d) { d.open = true; setTimeout(() => d.scrollIntoView({ block: "start" }), 150); }
+        const t = document.createElement("div");
+        t.className = "toast show"; t.setAttribute("role", "status"); t.textContent = text;
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 3200);
+      }
+    } catch (e) {}
+
+    const persistWeeks = (list, focusNo, text) =>
+      (LIVE ? api("saveCurriculum", { adminToken: X.adminToken, weeks: list })
+            : Promise.resolve().then(() => (list ? store.set("curriculum", list) : store.del("curriculum"))))
+        .then(() => {
+          try { sessionStorage.setItem("rw_week_saved", `${focusNo || ""}|${text}`); } catch (e) {}
+          location.reload();
+        });
+
+    const rowHtml = (kind, item) => `
+      <div class="wf-row" data-row="${kind}">
+        <input type="text" class="wf-t" placeholder="제목" value="${esc(item.title || "")}" aria-label="제목">
+        <input type="url" class="wf-u" placeholder="${kind === "video" ? "https://www.youtube.com/watch?v=…" : "https://drive.google.com/…"}" value="${esc(item.url || "")}" aria-label="주소">
+        <button type="button" class="icon-btn" data-row-del aria-label="이 줄 삭제">✕</button>
+        <small class="wf-hint"></small>
+      </div>`;
+    const hintFor = (kind, url) => {
+      if (!url) return "";
+      if (kind === "video") return X.ytId(url) ? "✓ YouTube 영상 — 사이트에서 바로 재생됩니다" : "YouTube 주소가 아니라서 링크로만 보입니다";
+      return X.driveEmbed(url) ? "✓ Google Drive 자료 — 미리보기가 가능합니다" : "미리보기 없이 링크로 보입니다 (공유 설정을 '링크가 있는 모든 사용자'로 해 주세요)";
+    };
+
+    const openWeekForm = (index) => {
+      const list = rawWeeks();
+      const isNew = index == null;
+      const w = isNew ? { title: "", summary: "", contents: [], videos: [], materials: [] } : list[index];
+      const as = w.assignment || null;
+      const dueVal = as && as.due ? String(as.due).trim().replace(" ", "T").slice(0, 16) : "";
+      const lastFocus = document.activeElement;
+      const wrap = document.createElement("div");
+      wrap.className = "modal-backdrop";
+      wrap.innerHTML = `
+        <form class="modal week-modal" role="dialog" aria-modal="true" aria-labelledby="wfTitle" novalidate>
+          <button class="modal-x" type="button" aria-label="닫기">×</button>
+          <div class="modal-body">
+            <h2 id="wfTitle">${isNew ? `${list.length + 1}주차 추가` : `${index + 1}주차 수정`}</h2>
+            <div class="field"><label for="wfName">제목 <span class="req">*</span></label><input id="wfName" value="${esc(w.title || "")}"><div class="field-error"></div></div>
+            <div class="field"><label for="wfSum">한 줄 요약 <span class="opt">(선택)</span></label><input id="wfSum" value="${esc(w.summary || "")}"></div>
+            <div class="field"><label for="wfDate">수업 날짜 <span class="opt">(비우면 매주 자동 계산)</span></label><input id="wfDate" type="date" value="${esc(w.date ? String(w.date).slice(0, 10) : "")}"></div>
+            <div class="field"><label for="wfContents">학습 내용 <span class="opt">(한 줄에 하나씩)</span></label><textarea id="wfContents" rows="4">${esc((w.contents || []).join("\n"))}</textarea></div>
+
+            <fieldset class="wf-set" data-set="video">
+              <legend>참고 영상 <span class="opt">YouTube 주소를 넣으면 사이트 안에서 재생됩니다</span></legend>
+              <div class="wf-rows">${(w.videos || []).map((v) => rowHtml("video", v)).join("")}</div>
+              <button type="button" class="btn ghost small" data-row-add="video">+ 영상 추가</button>
+            </fieldset>
+
+            <fieldset class="wf-set" data-set="material">
+              <legend>수업 자료 <span class="opt">Google Drive · Docs · Slides 공유 링크</span></legend>
+              <div class="wf-rows">${(w.materials || []).map((m) => rowHtml("material", m)).join("")}</div>
+              <button type="button" class="btn ghost small" data-row-add="material">+ 자료 추가</button>
+            </fieldset>
+
+            <fieldset class="wf-set">
+              <legend><label class="wf-check"><input type="checkbox" id="wfHasAs" ${as ? "checked" : ""}> 이 주차에 과제 있음</label></legend>
+              <div class="wf-as" ${as ? "" : "hidden"}>
+                <div class="field"><label for="wfAsTitle">과제 제목 <span class="req">*</span></label><input id="wfAsTitle" value="${esc(as ? as.title : "")}"><div class="field-error"></div></div>
+                <div class="field"><label for="wfAsDesc">설명</label><textarea id="wfAsDesc" rows="3">${esc(as ? as.desc || "" : "")}</textarea></div>
+                <div class="field"><label for="wfAsDue">마감 <span class="req">*</span></label><input id="wfAsDue" type="datetime-local" value="${esc(dueVal)}"><div class="field-error"></div></div>
+              </div>
+            </fieldset>
+
+            <div class="form-msg" role="alert"></div>
+            <div class="form-actions">
+              <button class="btn" type="submit">${isNew ? "주차 추가" : "수정 저장"}</button>
+              <button class="btn ghost" type="button" data-act="cancel">취소</button>
+            </div>
+            ${LIVE ? "" : `<p class="muted wf-note">체험 모드: 이 브라우저에만 저장됩니다. 모든 방문자에게 보이려면 운영 모드(DB 연결)가 필요합니다.</p>`}
+          </div>
+        </form>`;
+      document.body.appendChild(wrap);
+      document.body.classList.add("modal-open");
+      requestAnimationFrame(() => wrap.classList.add("show"));
+      const form = $("form", wrap);
+      $("#wfName", wrap).focus();
+      $$(".wf-row", wrap).forEach((row) => { $(".wf-hint", row).textContent = hintFor(row.dataset.row, $(".wf-u", row).value.trim()); });
+
+      const close = () => {
+        wrap.classList.remove("show");
+        document.body.classList.remove("modal-open");
+        document.removeEventListener("keydown", onKey);
+        setTimeout(() => wrap.remove(), 250);
+        if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+      };
+      const onKey = (e) => { if (e.key === "Escape") close(); };
+      document.addEventListener("keydown", onKey);
+      wrap.addEventListener("click", (e) => {
+        if (e.target === wrap || e.target.closest(".modal-x") || e.target.closest('[data-act="cancel"]')) return close();
+        const add = e.target.closest("[data-row-add]");
+        if (add) {
+          const box = $(".wf-rows", add.closest(".wf-set"));
+          box.insertAdjacentHTML("beforeend", rowHtml(add.dataset.rowAdd, {}));
+          $(".wf-row:last-child .wf-t", box).focus();
+        }
+        const del = e.target.closest("[data-row-del]");
+        if (del) del.closest(".wf-row").remove();
+      });
+      wrap.addEventListener("input", (e) => {
+        const row = e.target.closest(".wf-row");
+        if (row && e.target.matches(".wf-u")) $(".wf-hint", row).textContent = hintFor(row.dataset.row, e.target.value.trim());
+      });
+      $("#wfHasAs", wrap).addEventListener("change", (e) => { $(".wf-as", wrap).hidden = !e.target.checked; });
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const need = [["wfName", "제목"]];
+        const hasAs = $("#wfHasAs", wrap).checked;
+        if (hasAs) need.push(["wfAsTitle", "과제 제목"], ["wfAsDue", "마감"]);
+        let bad = null;
+        ["wfName", "wfAsTitle", "wfAsDue"].forEach((id) => {
+          const el = $("#" + id, wrap);
+          el.closest(".field").classList.remove("invalid");
+          $(".field-error", el.closest(".field")).textContent = "";
+        });
+        need.forEach(([id, label]) => {
+          const el = $("#" + id, wrap);
+          if (el.value.trim()) return;
+          el.closest(".field").classList.add("invalid");
+          $(".field-error", el.closest(".field")).textContent = `${label}을(를) 입력해 주세요.`;
+          if (!bad) bad = el;
+        });
+        if (bad) return bad.focus();
+        const rows = (kind) => $$(`.wf-row[data-row="${kind}"]`, wrap)
+          .map((r) => ({ title: $(".wf-t", r).value.trim(), url: $(".wf-u", r).value.trim() }))
+          .filter((x) => x.url);
+        const next = Object.assign({}, isNew ? {} : w, {
+          title: $("#wfName", wrap).value.trim(),
+          summary: $("#wfSum", wrap).value.trim(),
+          contents: $("#wfContents", wrap).value.split("\n").map((s) => s.trim()).filter(Boolean),
+          videos: rows("video"),
+          materials: rows("material")
+        });
+        const date = $("#wfDate", wrap).value;
+        if (date) next.date = date; else delete next.date;
+        if (hasAs) {
+          next.assignment = Object.assign({}, as || {}, {
+            title: $("#wfAsTitle", wrap).value.trim(),
+            desc: $("#wfAsDesc", wrap).value.trim(),
+            due: $("#wfAsDue", wrap).value.replace("T", " ")
+          });
+        } else delete next.assignment;
+        if (isNew) list.push(next); else list[index] = next;
+        const no = isNew ? list.length : index + 1;
+        const sb = $("button[type=submit]", form);
+        sb.disabled = true;
+        persistWeeks(list, no, isNew ? `${no}주차를 추가했습니다.` : `${no}주차를 수정했습니다.`)
+          .catch((err) => { setMsg($(".form-msg", wrap), "no", err.message); sb.disabled = false; });
+      });
+    };
+
+    curSec.addEventListener("click", (e) => {
+      if (!X.adminToken) return;
+      const add = e.target.closest("[data-week-add]");
+      const ed = e.target.closest("[data-week-edit]");
+      const del = e.target.closest("[data-week-del]");
+      const reset = e.target.closest("[data-week-reset]");
+      if (add) openWeekForm(null);
+      if (ed) openWeekForm(Number(ed.dataset.weekEdit));
+      if (del) {
+        const i = Number(del.dataset.weekDel), list = rawWeeks();
+        if (!confirm(`${i + 1}주차 '${list[i].title}'을(를) 삭제할까요?\n\n뒤 주차의 번호와 날짜가 하나씩 앞당겨집니다. 이미 받은 출석·과제 기록은 주차 번호로 저장되어 있어 어긋날 수 있으니 학기 중에는 주의해 주세요.`)) return;
+        list.splice(i, 1);
+        persistWeeks(list, Math.min(i + 1, list.length), `${i + 1}주차를 삭제했습니다.`).catch((err) => alert(err.message));
+      }
+      if (reset) {
+        if (!confirm("사이트에서 고친 주차별 강의를 모두 지우고 config.js 의 원래 내용으로 되돌릴까요?")) return;
+        persistWeeks(null, "", "config.js 의 원래 주차별 강의로 되돌렸습니다.").catch((err) => alert(err.message));
+      }
+    });
+  }
+
+  /* =========================================================
      3-1. 수업 달력 일정 추가 (관리자) · 팝업 등록 · 공지사항 등록
      ========================================================= */
   const CAL = X.calendar;

@@ -192,7 +192,7 @@
     title: "제목", subtitle: "부제", lead: "설명 문구", text: "내용", badge: "배지", label: "이름", value: "값", sub: "보조 문구",
     icon: "아이콘", items: "항목", footer: "푸터 문구", button: "버튼", applyButton: "수강 신청 버튼", curriculumButton: "커리큘럼 버튼",
     link: "링크 주소", target: "이동할 섹션 id", suffix: "단위", weeks: "주차", summary: "요약", contents: "학습 내용",
-    videos: "참고 영상", url: "주소", assignment: "과제", desc: "설명", due: "마감 (YYYY-MM-DD HH:MM)", submit: "제출 주소(선택)",
+    videos: "참고 영상 (YouTube 주소면 바로 재생)", materials: "수업 자료 (Google Drive 링크)", url: "주소", assignment: "과제", desc: "설명", due: "마감 (YYYY-MM-DD HH:MM)", submit: "제출 주소(선택)",
     date: "날짜 (YYYY-MM-DD)", time: "시간", place: "수업 방식", onlineLink: "온라인 수업 입장 주소 (Zoom 등)", bioLabel: "소개 제목", careerLabel: "경력 제목", name: "이름", use: "용도", tag: "분류", author: "저자",
     options: "보기", answer: "정답", explain: "해설", question: "문제", type: "유형", q: "질문", a: "답변", photo: "사진 경로",
     role: "소속 / 직함", bio: "소개", career: "경력", email: "이메일", office: "면담 안내", startDate: "첫 수업일 (YYYY-MM-DD)",
@@ -206,7 +206,7 @@
     assessmentTitle: "평가 제목", outcomes: "학습 성과", outcomesTitle: "학습 성과 제목"
   };
   const TEMPLATES = {
-    holidays: { date: "", name: "" }, videos: { title: "", url: "" }, career: "", contents: "", points: "", options: "",
+    holidays: { date: "", name: "" }, videos: { title: "", url: "" }, materials: { title: "", url: "" }, career: "", contents: "", points: "", options: "",
     assignment: { title: "", desc: "", due: "", submit: "" }
   };
 

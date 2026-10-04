@@ -37,8 +37,8 @@ window.SITE_CONFIG = {
      비밀번호는 그대로 적지 않고 '해시값'으로만 저장합니다.
      비밀번호 변경은 관리자 화면 → [설정 파일] 탭에서 하세요. (기본 비밀번호는 안내서 참고)  */
   admin: {
-    salt: "rw-2026",
-    passwordHash: "66be70f79fa4b7469c43b9e9c3fd7db4742d663e11b45f70c38b37929a0782a3"
+    salt: "rw-kgm8yaqp",
+    passwordHash: "4ca5d64092987fd20f541d6901b4fd5e733fde313a3154a7693f9978b25b446f"
   },
 
   /* ---------- 공지사항 ----------
@@ -148,9 +148,13 @@ window.SITE_CONFIG = {
   /* ---------- 주차별 강의 (15주) ----------
      title      : 주차 제목          summary : 한 줄 요약
      contents   : 학습 내용 목록     videos  : 참고 영상 [{ title, url }]
+                  → YouTube 영상 주소(watch?v= · youtu.be · shorts)면 사이트 안에서 바로 재생됩니다
+     materials  : 수업 자료 [{ title, url }] — Google Drive · Docs · Slides 공유 링크면 '미리보기'가 생깁니다
+                  (드라이브 공유 설정을 '링크가 있는 모든 사용자 · 뷰어'로 해 주세요)
      assignment : 과제가 있는 주만 적습니다
                   { title, desc, due: "YYYY-MM-DD HH:MM", submit: "제출 주소(선택)" }
      date / time / place 를 적으면 그 주만 자동 일정 대신 그 값이 쓰입니다.
+     ※ 관리자 모드에서는 사이트의 '주차별 강의'에서 바로 주차를 추가 · 수정 · 삭제할 수 있습니다.
      ※ 참고 영상은 예시로 YouTube 검색 링크를 넣어 두었습니다. 실제 영상 주소로 바꿔 주세요. */
   curriculum: {
     id: "curriculum",

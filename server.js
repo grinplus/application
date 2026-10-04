@@ -31,19 +31,27 @@ const addDays = (ymd, n) => {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 };
 // 주차별 수업 날짜 (app.js 와 같은 방식: 시작일부터 매주, 휴강일은 건너뜀)
-const CLASS_DATES = (() => {
+const classDates = (weeks) => {
   const S = CFG.schedule || {};
   const hol = new Set((S.holidays || []).map((h) => String(h.date).slice(0, 10)));
   let d = String(S.startDate || "").slice(0, 10);
   if (!d) return [];
-  return ((CFG.curriculum && CFG.curriculum.weeks) || []).map((w) => {
-    if (w.date) d = String(w.date).slice(0, 10);
+  return (weeks || []).map((w) => {
+    if (w && w.date) d = String(w.date).slice(0, 10);
     else while (hol.has(d)) d = addDays(d, 7);
     const out = d;
     d = addDays(d, 7);
     return out;
   });
-})();
+};
+const CONFIG_WEEKS = (CFG.curriculum && CFG.curriculum.weeks) || [];
+// 관리자가 사이트에서 고친 주차별 강의 (없으면 null → config.js 그대로)
+const savedWeeks = async () => {
+  if (!dbReady) return null;
+  const r = await q("SELECT value FROM settings WHERE key = 'curriculum'");
+  if (!r.rows.length) return null;
+  try { const w = JSON.parse(r.rows[0].value); return Array.isArray(w) ? w : null; } catch (e) { return null; }
+};
 const todaySeoul = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
@@ -191,7 +199,8 @@ const ACTIONS = {
   async attend(req) {
     const me = await requireStudent(req);
     const t = todaySeoul(), week = Number(req.week);
-    if (req.date !== t || (CLASS_DATES.length && CLASS_DATES[week - 1] !== t)) fail("오늘은 출석 체크를 할 수 있는 수업일이 아닙니다.");
+    const dates = classDates((await savedWeeks()) || CONFIG_WEEKS);
+    if (req.date !== t || (dates.length && dates[week - 1] !== t)) fail("오늘은 출석 체크를 할 수 있는 수업일이 아닙니다.");
     const r = await q(`INSERT INTO attendance (sid, week, name, date) VALUES ($1, $2, $3, $4)
                        ON CONFLICT (sid, week) DO NOTHING RETURNING at`, [me.sid, week, me.name, t]);
     if (!r.rows.length) fail("이미 출석했습니다.");
@@ -288,6 +297,37 @@ const ACTIONS = {
           [String(e.id), String(e.date), String(e.time || ""), String(e.title || ""), String(e.body || ""), !!e.popup, !!e.notice]);
       }
     });
+    return {};
+  },
+
+  /* 주차별 강의 저장 (weeks 가 null 이면 config.js 원래 내용으로 되돌림) */
+  async saveCurriculum(req) {
+    requireAdmin(req);
+    if (req.weeks == null) {
+      await q("DELETE FROM settings WHERE key = 'curriculum'");
+      return {};
+    }
+    if (!Array.isArray(req.weeks)) fail("주차 정보가 올바르지 않습니다.");
+    const str = (v) => String(v == null ? "" : v).slice(0, 2000);
+    const links = (arr) => (Array.isArray(arr) ? arr : [])
+      .filter((x) => x && /^https?:\/\//i.test(String(x.url || "")))
+      .map((x) => ({ title: str(x.title), url: str(x.url) }));
+    const weeks = req.weeks.slice(0, 60).map((w) => {
+      const o = Object.assign({}, w, {
+        title: str(w.title), summary: str(w.summary),
+        contents: (Array.isArray(w.contents) ? w.contents : []).map(str).filter(Boolean),
+        videos: links(w.videos), materials: links(w.materials)
+      });
+      if (o.date && !/^\d{4}-\d{2}-\d{2}$/.test(String(o.date))) delete o.date;
+      if (o.assignment) {
+        const a = o.assignment;
+        if (!a.title || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(a.due || ""))) fail("과제 제목과 마감 일시를 확인해 주세요.");
+        o.assignment = Object.assign({}, a, { title: str(a.title), desc: str(a.desc), due: String(a.due) });
+      }
+      return o;
+    });
+    await q(`INSERT INTO settings (key, value) VALUES ('curriculum', $1)
+             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [JSON.stringify(weeks)]);
     return {};
   },
 
@@ -390,6 +430,15 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/health") return sendJson(res, 200, { ok: true, db: dbReady, error: dbReady ? "" : dbError });
     if (url.pathname.startsWith("/api/file/")) return await handleFile(res, url.pathname.slice("/api/file/".length));
     if (req.method !== "GET" && req.method !== "HEAD") { res.writeHead(405); return res.end(); }
+    // config.js 뒤에 관리자가 고친 주차별 강의를 덧붙여 보냄 → 모든 방문자에게 같은 내용
+    if (url.pathname === "/config.js") {
+      const base = await fs.promises.readFile(path.join(ROOT, "config.js"), "utf8");
+      let extra = "";
+      try { const w = await savedWeeks(); if (w) extra = `\nwindow.SITE_CURRICULUM = ${JSON.stringify(w).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029")};\n`; }
+      catch (e) { console.error("[config] curriculum:", e.message); }
+      res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache" });
+      return res.end(base + extra);
+    }
     serveStatic(res, url.pathname);
   } catch (e) {
     console.error("[http]", e);

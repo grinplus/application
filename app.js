@@ -50,6 +50,15 @@
     })();
   }
 
+  /* 관리자가 사이트에서 고친 주차별 강의
+     운영 모드: 서버(DB)가 config.js 와 함께 보내 주는 SITE_CURRICULUM / 체험 모드: 이 브라우저에 저장된 값 */
+  try {
+    const C0 = window.SITE_CONFIG;
+    const live = !!(C0 && C0.backend && C0.backend.url);
+    const saved = live ? window.SITE_CURRICULUM : JSON.parse(localStorage.getItem("rw_curriculum") || "null");
+    if (C0 && C0.curriculum && Array.isArray(saved)) C0.curriculum.weeks = saved;
+  } catch (e) { /* 저장된 값이 없거나 읽을 수 없으면 config.js 그대로 */ }
+
   const C = window.SITE_CONFIG;
   if (!C) {
     document.body.innerHTML = "<p style='padding:24px'>config.js 를 불러오지 못했습니다. 파일 위치와 문법(쉼표, 따옴표)을 확인하세요.</p>";
@@ -123,8 +132,35 @@
     return `<a class="btn" href="mailto:${esc(C.instructor.email)}?subject=${encodeURIComponent(`[${w.no}주차 과제] ${w.assignment.title}`)}">과제 제출하기</a>`;
   };
 
+  /* 참고 영상: YouTube 주소에서 영상 ID 찾기 (watch?v= · youtu.be · shorts · embed · live) */
+  const ytId = (url) => {
+    const m = String(url || "").match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : "";
+  };
+  /* 수업 자료: Google Drive · Docs · Slides · Sheets 주소를 미리보기(embed) 주소로 */
+  const driveEmbed = (url) => {
+    const u = String(url || "");
+    let m = u.match(/docs\.google\.com\/(document|presentation|spreadsheets|forms)\/d\/([A-Za-z0-9_-]+)/);
+    if (m) return m[1] === "forms" ? `https://docs.google.com/forms/d/${m[2]}/viewform?embedded=true` : `https://docs.google.com/${m[1]}/d/${m[2]}/preview`;
+    m = u.match(/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)/) || u.match(/drive\.google\.com\/(?:open|uc)\?(?:.*&)?id=([A-Za-z0-9_-]+)/);
+    if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
+    m = u.match(/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/([A-Za-z0-9_-]+)/);
+    if (m) return `https://drive.google.com/embeddedfolderview?id=${m[1]}#list`;
+    return "";
+  };
+  const driveKind = (url) => {
+    const u = String(url || "");
+    if (/\/document\//.test(u)) return "Docs";
+    if (/\/presentation\//.test(u)) return "Slides";
+    if (/\/spreadsheets\//.test(u)) return "Sheets";
+    if (/\/forms\//.test(u)) return "Forms";
+    if (/\/folders\//.test(u)) return "폴더";
+    if (/drive\.google\.com/.test(u)) return "Drive";
+    return "링크";
+  };
+
   // 다른 스크립트(features.js)에서 쓸 수 있도록 공유
-  window.SITE = { C, esc, $, $$, keyOf, parseDate, addDays, fmtDate, fmtDateTime, today, weeks, nextWeek, remain, pad, reduceMotion };
+  window.SITE = { C, esc, $, $$, keyOf, parseDate, addDays, fmtDate, fmtDateTime, today, weeks, nextWeek, remain, pad, reduceMotion, ytId, driveEmbed };
 
   /* ---------- 기본 정보 / 히어로 ---------- */
   const H = C.hero;
@@ -241,7 +277,11 @@
         ${head(s, "Curriculum")}
         <div class="week-tools">
           <span class="legend"><i class="lg done"></i>지난 수업 <i class="lg now"></i>다음 수업 <i class="lg hw"></i>과제 있음</span>
-          <button class="btn ghost small" type="button" id="toggleAllWeeks">모두 펼치기</button>
+          <span class="week-tool-btns">
+            <button class="btn small admin-only" type="button" data-week-add hidden>+ 주차 추가</button>
+            <button class="btn ghost small admin-only" type="button" data-week-reset hidden>원래대로</button>
+            <button class="btn ghost small" type="button" id="toggleAllWeeks">모두 펼치기</button>
+          </span>
         </div>
         <div class="week-list">
           ${weeks.map((w) => {
@@ -260,9 +300,14 @@
                 <span class="chev" aria-hidden="true"></span>
               </summary>
               <div class="week-body">
+                <div class="week-admin admin-only" hidden>
+                  <span>관리자</span>
+                  <button class="btn ghost small" type="button" data-week-edit="${w.no - 1}">이 주차 수정</button>
+                  <button class="btn ghost small" type="button" data-week-del="${w.no - 1}">삭제</button>
+                </div>
                 <dl class="week-meta">
                   <div><dt>날짜</dt><dd>${esc(fmtDate(w.date))}</dd></div>
-                  <div><dt>⏰ 시간</dt><dd>${esc(w.time)}</dd></div>
+                  <div><dt>시간</dt><dd>${esc(w.time)}</dd></div>
                   <div><dt>수업 방식</dt><dd>${esc(w.place)}${joinLink(w)}</dd></div>
                 </dl>
                 <div class="week-cols">
@@ -275,11 +320,39 @@
                   <div>
                     <h4>참고 영상</h4>
                     ${w.videos && w.videos.length
-                      ? `<ul class="videos">${w.videos.map((v) => `<li><a href="${esc(v.url)}" target="_blank" rel="noopener">▶ ${esc(v.title)}</a></li>`).join("")}</ul>`
+                      ? `<div class="videos">${w.videos.map((v) => {
+                          const id = ytId(v.url);
+                          // YouTube 주소: 썸네일을 누르면 그 자리에서 재생 / 그 밖의 주소: 새 창 링크
+                          return id ? `
+                            <figure class="yt" data-yt="${id}" data-yt-title="${esc(v.title || "YouTube 영상")}">
+                              <button type="button" class="yt-play" aria-label="${esc(v.title || "영상")} 재생">
+                                <img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy">
+                                <span class="yt-btn" aria-hidden="true"></span>
+                              </button>
+                              ${v.title ? `<figcaption>${esc(v.title)}</figcaption>` : ""}
+                            </figure>`
+                            : `<a class="video-link" href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.title || v.url)} ↗</a>`;
+                        }).join("")}</div>`
                       : `<p class="muted">이번 주는 참고 영상이 없습니다.</p>`}
                   </div>
                 </div>
-                ${w.assignment ? `
+                ${w.materials && w.materials.length ? `
+                <div class="materials">
+                  <h4>수업 자료</h4>
+                  <ul class="mat-list">${w.materials.map((m, mi) => {
+                    const embed = driveEmbed(m.url);
+                    return `
+                    <li>
+                      <div class="mat-row">
+                        <span class="mat-kind">${esc(driveKind(m.url))}</span>
+                        <a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title || m.url)}</a>
+                        ${embed ? `<button type="button" class="link-btn mat-toggle" data-mat-embed="${esc(embed)}" aria-expanded="false" aria-controls="mat-${w.no}-${mi}">미리보기</button>` : ""}
+                      </div>
+                      ${embed ? `<div class="mat-preview" id="mat-${w.no}-${mi}" hidden></div>` : ""}
+                    </li>`;
+                  }).join("")}</ul>
+                </div>` : ""}
+                ${w.assignment && r ? `
                 <div class="assignment ${r.cls}">
                   <div class="as-head">
                     <span class="as-label">과제</span>
@@ -581,6 +654,40 @@
     items.forEach((d) => d.addEventListener("toggle", sync));
     sync();
   }
+
+  /* 참고 영상: 썸네일을 누르면 그 자리에서 YouTube 재생 (처음부터 플레이어를 띄우지 않아 페이지가 가벼움) */
+  document.addEventListener("click", (e) => {
+    const play = e.target.closest(".yt-play");
+    if (play) {
+      const fig = play.closest(".yt");
+      const frame = document.createElement("iframe");
+      frame.src = `https://www.youtube-nocookie.com/embed/${fig.dataset.yt}?autoplay=1&rel=0`;
+      frame.title = fig.dataset.ytTitle || "YouTube 영상";
+      frame.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+      frame.allowFullscreen = true;
+      frame.referrerPolicy = "strict-origin-when-cross-origin";
+      play.replaceWith(frame);
+      frame.focus();
+      return;
+    }
+    // 수업 자료: Google Drive 미리보기 펼치기 / 접기
+    const mt = e.target.closest(".mat-toggle");
+    if (mt) {
+      const box = document.getElementById(mt.getAttribute("aria-controls"));
+      const open = mt.getAttribute("aria-expanded") !== "true";
+      if (open && !box.firstChild) {
+        const f = document.createElement("iframe");
+        f.src = mt.dataset.matEmbed;
+        f.title = "수업 자료 미리보기";
+        f.loading = "lazy";
+        f.allow = "autoplay";
+        box.appendChild(f);
+      }
+      box.hidden = !open;
+      mt.setAttribute("aria-expanded", String(open));
+      mt.textContent = open ? "미리보기 닫기" : "미리보기";
+    }
+  });
   const openWeek = (no) => {
     const el = document.getElementById("week-" + no);
     if (!el) return;

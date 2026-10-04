@@ -1467,3 +1467,54 @@ main > .section:first-child::before { display: none; }
 body::after { z-index: -1; }
 .cal-day.today .dn, .cal-day.today.sun .dn { color: #fff; }
 .notice.important { border-left: 2px solid var(--k-red); }
+
+/* ---------- 주차별 강의: 참고 영상(YouTube) · 수업 자료(Google Drive) · 관리자 편집 ---------- */
+.week-tool-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.admin-only[hidden] { display: none !important; }
+.week-admin { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 14px 0 0; padding-left: 12px; border-left: 2px solid var(--k-blue); }
+.week-admin > span { font-size: .78rem; font-weight: 700; letter-spacing: .08em; color: var(--k-blue); margin-right: 4px; }
+.videos { display: grid; gap: 14px; }
+.yt { margin: 0; }
+.yt-play, .yt iframe { display: block; position: relative; width: 100%; aspect-ratio: 16 / 9; border: 1px solid var(--k-border); background: var(--k-ink); padding: 0; cursor: pointer; overflow: hidden; }
+.yt iframe { cursor: auto; }
+.yt-play img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(.85); transition: opacity .2s; }
+.yt-play:hover img { opacity: .85; }
+.yt-play:focus-visible { outline: 2px solid var(--k-blue); outline-offset: 2px; }
+.yt-btn { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 9999px !important; background: rgba(255, 255, 255, .92); border: 1px solid var(--k-ink); }
+.yt-btn::after { content: ""; position: absolute; left: 22px; top: 18px; border-style: solid; border-width: 10px 0 10px 16px; border-color: transparent transparent transparent var(--k-ink); }
+.yt figcaption { margin-top: 6px; font-size: .86rem; color: var(--k-ink-2); }
+.video-link { font-size: .92rem; font-weight: 500; text-decoration: none; color: var(--k-blue); }
+.video-link:hover { text-decoration: underline; }
+.materials { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--k-border); }
+.mat-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.mat-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mat-row a { font-weight: 500; color: var(--k-ink); text-decoration: none; overflow-wrap: anywhere; }
+.mat-row a:hover { color: var(--k-blue); text-decoration: underline; }
+.mat-kind { flex: none; font-size: .7rem; font-weight: 700; letter-spacing: .06em; color: var(--k-blue); border: 1px solid currentColor; padding: 0 7px; line-height: 1.7; }
+.mat-toggle { margin-left: auto; color: var(--k-blue); }
+.mat-preview { margin-top: 8px; border: 1px solid var(--k-border); background: var(--k-canvas); }
+.mat-preview iframe { display: block; width: 100%; height: 480px; border: 0; }
+.week-modal { width: min(640px, 100%); }
+.week-modal .modal-body { text-align: left; padding-bottom: 20px; }
+.week-modal h2 { margin-top: 4px; }
+.week-modal .field { margin-bottom: 12px; }
+.wf-set { margin: 16px 0 0; padding: 14px 0 0; border: 0; border-top: 1px solid var(--k-border); display: grid; gap: 8px; }
+.wf-set legend { padding: 0 8px 0 0; font-weight: 700; color: var(--k-ink); font-size: .93rem; }
+.wf-set legend .opt { margin-left: 6px; }
+.wf-rows { display: grid; gap: 10px; }
+.wf-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) 30px; gap: 6px; align-items: center; }
+.wf-row input { width: 100%; padding: 9px 11px; border: 1px solid var(--k-line); font: inherit; font-size: .9rem; background: #fff; }
+.wf-row input:focus { outline: 1px solid var(--k-blue); outline-offset: -1px; border-color: var(--k-blue); }
+.wf-hint { grid-column: 1 / -1; font-size: .78rem; color: var(--k-ink-2); min-height: 0; }
+.wf-hint:empty { display: none; }
+.wf-set [data-row-add] { justify-self: start; }
+.wf-check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.wf-check input { width: 17px; height: 17px; accent-color: var(--k-blue); }
+.wf-as { display: grid; }
+.wf-as[hidden] { display: none; }
+.wf-note { margin: 12px 0 0; font-size: .82rem; }
+@media (max-width: 640px) {
+  .wf-row { grid-template-columns: minmax(0, 1fr) 30px; }
+  .wf-row .wf-u { grid-column: 1 / 2; grid-row: 2; }
+  .mat-preview iframe { height: 360px; }
+}
