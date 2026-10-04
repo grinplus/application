@@ -1540,3 +1540,16 @@ body::after { z-index: -1; }
 .sb.miss { color: var(--k-red); background: #FEF2F2; }
 .sb a { color: inherit; text-decoration: none; }
 .sb a:hover { text-decoration: underline; }
+
+/* ---------- v1.2: 주차 편집창 Google Drive 첨부 · 머리글 편집 버튼 ---------- */
+.wf-attach { display: flex; gap: 6px; }
+.wf-attach input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--k-blue); font: inherit; font-size: .9rem; background: #fff; }
+.wf-attach input:focus { outline: 1px solid var(--k-blue); outline-offset: -1px; }
+.wf-attach-msg { font-size: .8rem; min-height: 0; }
+.wf-attach-msg:empty { display: none; }
+.wf-attach-msg.ok { color: var(--k-blue); }
+.wf-attach-msg.no { color: var(--k-red); }
+.wf-help { margin: 2px 0 0; font-size: .8rem; color: var(--k-ink-2); line-height: 1.6; }
+.wf-help b { color: var(--k-ink); font-weight: 600; }
+.week-edit-btn { flex: none; padding: 4px 12px !important; font-size: .8rem !important; }
+.week-edit-btn[hidden] { display: none !important; }

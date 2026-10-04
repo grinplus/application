@@ -920,9 +920,15 @@
             </fieldset>
 
             <fieldset class="wf-set" data-set="material">
-              <legend>수업 자료 <span class="opt">Google Drive · Docs · Slides 공유 링크</span></legend>
+              <legend>Google Drive 자료 첨부 <span class="opt">Drive 파일 · 폴더 · Docs · Slides · Sheets</span></legend>
+              <div class="wf-attach">
+                <input type="url" id="wfDrive" placeholder="Google Drive 공유 링크를 붙여 넣으세요" aria-label="Google Drive 공유 링크">
+                <button type="button" class="btn small" id="wfDriveAdd">첨부</button>
+              </div>
+              <small class="wf-attach-msg" id="wfDriveMsg" role="status"></small>
               <div class="wf-rows">${(w.materials || []).map((m) => rowHtml("material", m)).join("")}</div>
-              <button type="button" class="btn ghost small" data-row-add="material">+ 자료 추가</button>
+              <button type="button" class="btn ghost small" data-row-add="material">+ 다른 링크 직접 추가</button>
+              <p class="wf-help">학생이 볼 수 있도록 드라이브에서 <b>공유 → 일반 액세스: '링크가 있는 모든 사용자' · 뷰어</b>로 설정해 주세요. 첨부한 자료는 주차를 펼치면 '미리보기'로 바로 볼 수 있습니다.</p>
             </fieldset>
 
             <fieldset class="wf-set">
@@ -975,6 +981,30 @@
       });
       $("#wfHasAs", wrap).addEventListener("change", (e) => { $(".wf-as", wrap).hidden = !e.target.checked; });
 
+      // Google Drive 링크 붙여 넣기 → 제목을 자동으로 붙여 자료 목록에 추가
+      const driveIn = $("#wfDrive", wrap), driveMsg = $("#wfDriveMsg", wrap);
+      const driveTitle = (u) =>
+        /\/document\//.test(u) ? "Google Docs 문서" : /\/presentation\//.test(u) ? "Google Slides 자료" :
+        /\/spreadsheets\//.test(u) ? "Google Sheets 자료" : /\/forms\//.test(u) ? "Google Forms 설문" :
+        /\/folders\//.test(u) ? "Google Drive 폴더" : "Google Drive 파일";
+      const attachDrive = () => {
+        const u = driveIn.value.trim();
+        const say = (ok, t) => { driveMsg.className = "wf-attach-msg " + (ok ? "ok" : "no"); driveMsg.textContent = t; };
+        if (!u) { say(false, "Google Drive 공유 링크를 붙여 넣어 주세요."); return driveIn.focus(); }
+        if (!/^https:\/\/(drive|docs)\.google\.com\//i.test(u)) { say(false, "Google Drive · Docs 주소가 아닙니다. (https://drive.google.com/… 또는 https://docs.google.com/…)"); return driveIn.select(); }
+        if ($$('.wf-row[data-row="material"] .wf-u', wrap).some((x) => x.value.trim() === u)) { say(false, "이미 첨부한 링크입니다."); return driveIn.select(); }
+        const box = $(".wf-rows", driveIn.closest(".wf-set"));
+        box.insertAdjacentHTML("beforeend", rowHtml("material", { title: driveTitle(u), url: u }));
+        const row = $(".wf-row:last-child", box);
+        $(".wf-hint", row).textContent = hintFor("material", u);
+        driveIn.value = "";
+        say(true, X.driveEmbed(u) ? "첨부했습니다. 제목을 알맞게 고쳐 주세요." : "첨부했습니다. 이 주소는 미리보기 없이 링크로 보입니다.");
+        $(".wf-t", row).select();
+      };
+      $("#wfDriveAdd", wrap).addEventListener("click", attachDrive);
+      driveIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); attachDrive(); } });
+      driveIn.addEventListener("paste", () => setTimeout(attachDrive, 0));   // 붙여 넣으면 바로 첨부
+
       form.addEventListener("submit", (e) => {
         e.preventDefault();
         const need = [["wfName", "제목"]];
@@ -1024,6 +1054,7 @@
 
     curSec.addEventListener("click", (e) => {
       if (!X.adminToken || !e.target.closest("[data-week-add], [data-week-edit], [data-week-del], [data-week-reset]")) return;
+      e.preventDefault();                              // 주차 머리글의 '편집'을 눌러도 펼쳐지거나 접히지 않게
       if (LIVE && weeksLocked()) { alert("주차 내용을 불러오는 중입니다. 잠시 후 다시 눌러 주세요."); syncWeekAccess(); return; }
       const add = e.target.closest("[data-week-add]");
       const ed = e.target.closest("[data-week-edit]");

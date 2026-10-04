@@ -46,13 +46,35 @@
   const hashPw = (pw, salt) => sha256(`${salt || ""}::${pw}`);
   X.sha256 = sha256;
 
-  /* ---------- 관리자 로그인 상태 (이 탭을 닫으면 잠김) ---------- */
+  /* ---------- 관리자 로그인 상태
+     새로고침하거나 새 탭을 열어도 12시간 동안 유지 ('잠그기'를 누르면 바로 잠김) ---------- */
   const ss = {
     get(k) { try { return sessionStorage.getItem("rw_" + k); } catch (e) { return null; } },
     set(k, v) { try { sessionStorage.setItem("rw_" + k, v); } catch (e) {} },
     del(k) { try { sessionStorage.removeItem("rw_" + k); } catch (e) {} }
   };
-  let adminToken = ss.get("adminToken");
+  const ADMIN_HOURS = 12;
+  const loadAdmin = () => {
+    try {
+      const o = JSON.parse(localStorage.getItem("rw_admin") || "null");
+      if (o && o.token && o.exp > Date.now()) return o.token;
+      localStorage.removeItem("rw_admin");
+    } catch (e) {}
+    return ss.get("adminToken");                     // 저장소를 못 쓰는 환경: 이 탭에서만 유지
+  };
+  const saveAdmin = (t) => {
+    ss.set("adminToken", t);
+    try { localStorage.setItem("rw_admin", JSON.stringify({ token: t, exp: Date.now() + ADMIN_HOURS * 3600e3 })); } catch (e) {}
+  };
+  const clearAdmin = () => {
+    ss.del("adminToken"); ss.del("panel");
+    try { localStorage.removeItem("rw_admin"); } catch (e) {}
+  };
+  let adminToken = loadAdmin();
+  // 다른 탭에서 잠그면 이 탭도 잠김
+  window.addEventListener("storage", (e) => {
+    if (e.key === "rw_admin" && !e.newValue && adminToken) { adminToken = null; ss.del("adminToken"); if (panel) closePanel(true); syncBtn(); }
+  });
   const syncBtn = () => {
     btn.classList.toggle("unlocked", !!adminToken);
     btn.classList.toggle("has-override", !!adminToken && !!window.SITE_CONFIG_OVERRIDDEN);   // 수정본 적용 중 표시 (관리자에게만)
@@ -163,7 +185,7 @@
         .then((res) => {
           fails = 0;
           adminToken = res.adminToken || "demo";
-          ss.set("adminToken", adminToken);
+          saveAdmin(adminToken);
           syncBtn();
           close();
           openPanel();
@@ -265,7 +287,7 @@
       if (a.dataset.act === "lock") {
         if (!confirmLeave()) return;
         adminToken = null;
-        ss.del("adminToken");
+        clearAdmin();
         syncBtn();
         closePanel(true);
         toast("관리자 모드를 잠갔습니다.");
@@ -284,6 +306,7 @@
     document.removeEventListener("keydown", onPanelKey);
     const p = panel;
     panel = null;
+    ss.del("panel");                                 // 닫았으면 새로고침해도 다시 열지 않음
     setTimeout(() => p.remove(), 250);
     btn.focus({ preventScroll: true });
   };
@@ -293,6 +316,7 @@
     if ((current === "site" || current === "sections") && id !== current && dirty && !confirmLeave()) return;
     if (id !== current && (current === "site" || current === "sections")) { draft = JSON.parse(JSON.stringify(window.SITE_CONFIG)); dirty = false; }
     current = id;
+    ss.set("panel", id);                             // 새로고침하면 이 탭으로 다시 열림
     $$("[data-tab]", panel).forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === id)));
     const el = main();
     el.scrollTop = 0;
@@ -302,7 +326,7 @@
       applications: tabApplications, file: tabFile }[id];
     Promise.resolve().then(run).catch((err) => {
       el.innerHTML = `<div class="form-msg show no">${esc(err.message)}</div>`;
-      if (/관리자|로그인/.test(err.message)) { adminToken = null; ss.del("adminToken"); syncBtn(); }
+      if (/관리자|로그인/.test(err.message)) { adminToken = null; clearAdmin(); syncBtn(); }
     });
   };
   const head = (title, desc, actions) => `
@@ -919,4 +943,7 @@ window.SITE_CONFIG = ${JSON.stringify(cfg, null, 2)};
     openPanel(reopen);
     toast("저장했습니다. 수정한 내용이 이 브라우저에 적용되었습니다.");
   }
+  // 새로고침 전에 관리자 화면이 열려 있었으면 같은 탭으로 다시 열기
+  const lastPanel = ss.get("panel");
+  if (lastPanel && adminToken && !panel) openPanel(lastPanel);
 })();

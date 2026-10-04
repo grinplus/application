@@ -300,6 +300,7 @@
                   ${w.summary ? `<span class="week-sum">${esc(w.summary)}</span>` : ""}
                 </span>
                 ${r ? `<span class="chip hw ${r.cls}" data-due-chip="${w.no}">Due ${esc(r.dday)}</span>` : ""}
+                <button type="button" class="btn ghost small admin-only week-edit-btn" data-week-edit="${w.no - 1}" hidden>편집</button>
                 <span class="chev" aria-hidden="true"></span>
               </summary>
               <div class="week-body">
