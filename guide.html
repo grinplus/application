@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>사이트 사용 안내서</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='16' fill='%23cfeefd'/%3E%3Crect y='16' width='32' height='16' fill='%232cb5c9'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .g-hero { background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom)); padding: 48px 20px 40px; text-align: center; border-bottom: 2px solid #fff; box-shadow: 0 2px 0 var(--sea-light); }
+    .g-hero h1 { margin: 10px 0 6px; color: var(--navy); font-size: clamp(1.6rem, 4vw, 2.2rem); }
+    .g-hero p { margin: 0; color: var(--muted); }
+    .g-wrap { max-width: 1000px; margin: 0 auto; padding: 28px 20px 60px; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 28px; align-items: start; }
+    .toc { position: sticky; top: calc(var(--header-h) + 16px); background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; font-size: .9rem; }
+    .toc b { display: block; color: var(--navy); margin-bottom: 6px; }
+    .toc ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+    .toc a { color: var(--text); text-decoration: none; }
+    .toc a:hover { color: var(--sea-deep); text-decoration: underline; }
+    .g-sec { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 24px 26px; margin-bottom: 18px; scroll-margin-top: calc(var(--header-h) + 12px); }
+    .g-sec h2 { margin: 0 0 12px; color: var(--navy); font-size: 1.35rem; padding-left: 12px; border-left: 4px solid var(--sea); line-height: 1.3; }
+    .g-sec h3 { margin: 22px 0 8px; color: var(--sea-deep); font-size: 1.05rem; }
+    .g-sec p, .g-sec li { color: var(--text); overflow-wrap: anywhere; }
+    .g-sec ol, .g-sec ul { padding-left: 22px; }
+    .g-sec li + li { margin-top: 4px; }
+    .g-sec code { background: var(--sky-bottom); border: 1px solid var(--line); padding: 1px 6px; border-radius: 3px; font-size: .88em; overflow-wrap: anywhere; }
+    .g-sec pre { background: var(--navy); color: #e3f6fb; padding: 14px 16px; border-radius: var(--radius); overflow-x: auto; font-size: .86rem; line-height: 1.6; }
+    .g-table { width: 100%; border-collapse: collapse; font-size: .92rem; margin: 8px 0; }
+    .g-table th, .g-table td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+    .g-table th { background: var(--sky-bottom); color: var(--navy); white-space: nowrap; }
+    .g-scroll { overflow-x: auto; }
+    .tip, .warnbox { padding: 12px 14px; border-radius: var(--radius); margin: 12px 0; font-size: .94rem; }
+    .tip { background: #e9f8fb; border-left: 4px solid var(--sea); }
+    .warnbox { background: var(--warn-bg); border-left: 4px solid var(--warn); color: #6b4a10; }
+    .steps { counter-reset: s; list-style: none; padding-left: 0 !important; }
+    .steps > li { counter-increment: s; position: relative; padding-left: 40px; margin-top: 10px !important; }
+    .steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 4px; background: var(--sea); color: #fff; font-weight: 700; font-size: .9rem; }
+    .kbd { display: inline-block; padding: 0 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: #fff; font-size: .85em; }
+    .g-wrap > main { padding: 0; margin: 0; max-width: none; min-width: 0; }
+    @media (max-width: 860px) {
+      .g-wrap { grid-template-columns: minmax(0, 1fr); }
+      .toc { position: static; }
+    }
+    @media (max-width: 640px) {
+      .g-wrap { padding: 20px 16px 48px; }
+      .g-sec { padding: 18px 16px; }
+    }
+    @media print { .header, .toc { display: none; } .g-wrap { display: block; } .g-sec { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <a class="brand" href="index.html"><span>AI와 영어교육 · 사용 안내서</span></a>
+      <div class="header-actions"><a class="btn small" href="index.html">← 사이트로</a></div>
+    </div>
+  </header>
+
+  <section class="g-hero">
+    <span class="badge">교수자용</span>
+    <h1>수업 사이트 사용 안내서</h1>
+    <p>사이트 내용 고치기, 관리자 모드, 수강생 데이터 받기, 인터넷에 올리기까지</p>
+  </section>
+
+  <div class="g-wrap">
+    <nav class="toc" aria-label="목차">
+      <b>목차</b>
+      <ol>
+        <li><a href="#start">처음 시작하기</a></li>
+        <li><a href="#files">폴더 구성</a></li>
+        <li><a href="#admin">관리자 모드</a></li>
+        <li><a href="#edit">내용 고치기</a></li>
+        <li><a href="#data">명단·공지·내역</a></li>
+        <li><a href="#modes">체험 모드와 운영 모드</a></li>
+        <li><a href="#live">운영 모드 연결</a></li>
+        <li><a href="#deploy">인터넷에 올리기</a></li>
+        <li><a href="#students">수강생 안내</a></li>
+        <li><a href="#security">보안·개인정보</a></li>
+        <li><a href="#trouble">문제 해결</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <section class="g-sec" id="start">
+        <h2>1. 처음 시작하기</h2>
+        <ol class="steps">
+          <li><code>class-site</code> 폴더의 <b>index.html</b> 을 더블클릭하면 브라우저에서 사이트가 열립니다. 별도 프로그램이나 서버가 필요 없습니다.</li>
+          <li>오른쪽 위 <b>🔒 자물쇠</b>를 누르고 기본 비밀번호 <code>admin2026</code> 을 입력하면 관리자 화면이 열립니다.</li>
+          <li>가장 먼저 <b>[설정 파일] 탭 → 관리자 비밀번호 변경</b>에서 비밀번호를 바꾸고, <b>config.js 내려받기</b>로 받은 파일을 사이트 폴더의 config.js 와 바꿔 주세요.</li>
+          <li>교수자 프로필(영어)·이메일·사진, Zoom 수업 입장 주소(<code>schedule.onlineLink</code>), 일정을 실제 정보로 고칩니다. (<a href="#edit">4. 내용 고치기</a>)</li>
+          <li>실제 수업에서 수강생 데이터를 모으려면 <a href="#live">운영 모드 연결</a>을, 인터넷에 올리려면 <a href="#deploy">인터넷에 올리기</a>를 따라 주세요.</li>
+        </ol>
+        <div class="tip">💡 사진은 <code>class-site/images/instructor.jpg</code> 로 넣으면 바로 보입니다. (images 폴더를 새로 만드세요. 세로 4:5 비율 권장)</div>
+      </section>
+
+      <section class="g-sec" id="files">
+        <h2>2. 폴더 구성</h2>
+        <div class="g-scroll"><table class="g-table">
+          <tr><th>파일</th><th>역할</th><th>고칠 일</th></tr>
+          <tr><td><code>index.html</code></td><td>사이트 첫 페이지 (뼈대)</td><td>거의 없음</td></tr>
+          <tr><td><code>config.js</code></td><td><b>사이트의 모든 내용</b> (글, 일정, 과제, 메뉴, 관리자 비밀번호 해시)</td><td>여기만 고치면 됩니다</td></tr>
+          <tr><td><code>style.css</code></td><td>디자인. 맨 위 <code>:root</code> 의 색 값을 바꾸면 전체 색이 바뀝니다</td><td>색을 바꿀 때만</td></tr>
+          <tr><td><code>app.js</code></td><td>소개·주차별 강의·달력 화면</td><td>없음</td></tr>
+          <tr><td><code>features.js</code></td><td>투표·신청서·출석·과제·공지·팝업</td><td>없음</td></tr>
+          <tr><td><code>admin.js</code></td><td>관리자 화면</td><td>없음</td></tr>
+          <tr><td><code>guide.html</code></td><td>이 안내서</td><td>없음</td></tr>
+          <tr><td><code>backend/google-apps-script.gs</code></td><td>운영 모드용 구글 시트 연결 코드 (사이트에 올릴 필요 없음)</td><td>운영 모드 연결 시</td></tr>
+        </table></div>
+      </section>
+
+      <section class="g-sec" id="admin">
+        <h2>3. 관리자 모드</h2>
+        <p>오른쪽 위 자물쇠를 누르고 비밀번호를 입력하면 관리자 화면이 열립니다. 로그인 상태는 <b>브라우저 탭을 닫으면 자동으로 잠기며</b>, 화면 위쪽 <b>[잠그기]</b>로 바로 잠글 수도 있습니다. 비밀번호를 5번 틀리면 30초 동안 입력할 수 없습니다.</p>
+        <div class="g-scroll"><table class="g-table">
+          <tr><th>탭</th><th>할 수 있는 일</th></tr>
+          <tr><td>개요</td><td>신청·명단·최근 출석·과제 제출·공지 수, 다가오는 과제 마감</td></tr>
+          <tr><td>사이트 정보</td><td>사이트 제목, 첫 화면, 강의 개요, 안내 팝업, 수업 일정, 교수자 소개</td></tr>
+          <tr><td>섹션 내용</td><td>주차별 강의(과제 추가·삭제 포함), 통계, 장점, 투표 주제, 신청서 항목, AI 도구, 준비물, Reading, 문제, FAQ, 메뉴</td></tr>
+          <tr><td>수강생 명단</td><td>엑셀에서 복사해 붙여넣기 / CSV 불러오기 / 한 명씩 추가 · PIN 자동 생성 · 명단 내려받기</td></tr>
+          <tr><td>공지</td><td>공지 쓰기·수정·삭제. '중요'로 올리면 첫 화면 위쪽에도 띠로 표시</td></tr>
+          <tr><td>출석</td><td>수강생 × 주차 출석표, 주차별 합계, <b>엑셀로 내려받기</b></td></tr>
+          <tr><td>과제</td><td>주차별 제출 목록, 미제출자 명단, 파일 열기(운영 모드), <b>엑셀로 내려받기</b></td></tr>
+          <tr><td>수강 신청</td><td>접수된 신청서 전체, 신청자를 명단에 한 번에 추가, <b>엑셀로 내려받기</b></td></tr>
+          <tr><td>설정 파일</td><td>config.js 내려받기 / 불러오기 / 수정본 지우기 / 관리자 비밀번호 변경</td></tr>
+        </table></div>
+        <div class="tip">💡 '엑셀로 내려받기'는 <b>CSV 파일</b>을 만듭니다. 엑셀에서 더블클릭하면 한글이 깨지지 않고 바로 열립니다.</div>
+      </section>
+
+      <section class="g-sec" id="edit">
+        <h2>4. 내용 고치기</h2>
+        <h3>방법 A — 관리자 화면에서 (추천)</h3>
+        <ol class="steps">
+          <li>관리자 화면 → <b>[사이트 정보]</b> 또는 <b>[섹션 내용]</b> 탭에서 왼쪽 목록의 항목을 고릅니다.</li>
+          <li>글을 고치고, 목록 항목은 <span class="kbd">↑</span> <span class="kbd">↓</span> 로 순서를 바꾸거나 <span class="kbd">✕</span> 로 지우고 <b>+ 추가</b>로 늘립니다.</li>
+          <li><b>저장하고 적용</b>을 누르면 <u>지금 쓰는 브라우저</u>에 바로 반영되어 확인할 수 있습니다.</li>
+          <li>마음에 들면 <b>[설정 파일] → config.js 내려받기</b>를 누르고, 받은 파일로 사이트 폴더(또는 인터넷에 올린 사이트)의 config.js 를 바꿉니다. <b>이렇게 해야 모든 방문자에게 반영됩니다.</b></li>
+        </ol>
+        <div class="warnbox">⚠ 화면에서 고친 내용은 처음엔 그 브라우저에만 저장됩니다. 다른 컴퓨터·수강생에게도 보이게 하려면 반드시 4번(config.js 바꾸기)을 해 주세요. 관리자 화면에서 자물쇠 옆에 주황색 점이 보이면 '이 브라우저에 수정본이 적용 중'이라는 뜻입니다.</div>
+        <h3>방법 B — config.js 를 직접 고치기</h3>
+        <p>config.js 를 메모장(또는 VS Code)으로 열어 따옴표 안의 글자를 고치고 저장합니다. 항목을 늘릴 때는 <code>{ ... }</code> 묶음을 복사해 쉼표로 이어 붙이세요. 날짜는 <code>"2026-09-01"</code>, 마감은 <code>"2026-10-05 23:59"</code> 형식입니다.</p>
+        <h3>자주 고치는 곳</h3>
+        <ul>
+          <li><b>학기 일정</b>: <code>schedule.startDate</code>(1주차 날짜)만 바꾸면 15주 날짜와 달력이 자동으로 바뀝니다. 휴강일은 <code>schedule.holidays</code> 에 넣으면 그 주가 다음 주로 밀립니다.</li>
+          <li><b>과제 마감</b>: 각 주차의 <code>assignment.due</code>. 과제가 없는 주는 assignment 를 지우면 됩니다.</li>
+          <li><b>섹션 순서·숨기기</b>: <code>order</code> 목록의 순서를 바꾸거나 이름을 지웁니다. 메뉴는 <code>menu</code>.</li>
+        </ul>
+        <div class="tip">💡 잘못 고쳐서 화면이 깨지면 주소 끝에 <code>?reset-config</code> 를 붙여 열어 보세요. (예: <code>index.html?reset-config</code>) 이 브라우저의 수정본이 지워지고 원래 config.js 로 돌아갑니다.</div>
+      </section>
+
+      <section class="g-sec" id="data">
+        <h2>5. 명단 · 공지 · 내역 관리</h2>
+        <h3>수강생 명단 등록</h3>
+        <ol class="steps">
+          <li>엑셀에서 <b>학번 · 이름 · PIN</b> 세 열을 선택해 복사합니다. (PIN 열이 없으면 자동 생성)</li>
+          <li>관리자 화면 → [수강생 명단] → 입력칸에 붙여 넣고 <b>붙여 넣은 내용 추가</b>를 누릅니다.</li>
+          <li>표에서 확인·수정한 뒤 <b>명단 저장</b>을 누릅니다. 이후 수강생은 학번·이름·PIN 으로 로그인합니다.</li>
+          <li>PIN 은 수업 시간에 개별로 안내하세요. <b>명단 내려받기</b>로 PIN 목록을 받을 수 있습니다.</li>
+        </ol>
+        <p>수강 신청을 받은 경우 [수강 신청] 탭의 <b>신청자를 명단에 추가</b>로 한 번에 옮길 수 있습니다.</p>
+        <h3>출석</h3>
+        <p>수강생은 <b>수업이 있는 날(달력의 수업일)</b>에만 출석 버튼을 누를 수 있습니다. 운영 모드에서는 구글 서버가 한국 시간으로 날짜를 다시 확인합니다.</p>
+        <h3>엑셀로 받기</h3>
+        <p>[출석]·[과제]·[수강 신청] 탭 오른쪽 위 <b>엑셀로 내려받기</b>를 누르면 날짜가 붙은 CSV 파일이 저장됩니다. 운영 모드에서는 연결된 구글 시트에서도 같은 내용을 볼 수 있습니다.</p>
+      </section>
+
+      <section class="g-sec" id="modes">
+        <h2>6. 체험 모드와 운영 모드</h2>
+        <div class="g-scroll"><table class="g-table">
+          <tr><th></th><th>체험 모드 (기본)</th><th>운영 모드</th></tr>
+          <tr><td>설정</td><td><code>backend.url</code> 이 비어 있음</td><td><code>backend.url</code> 에 구글 웹 앱 주소 입력</td></tr>
+          <tr><td>저장 위치</td><td>각자의 브라우저</td><td>교수자의 구글 시트 · 드라이브</td></tr>
+          <tr><td>투표 결과</td><td>그 브라우저 기준</td><td>모든 수강생 합계 (10초마다 갱신)</td></tr>
+          <tr><td>로그인</td><td>명단이 없으면 누구나, 명단을 등록하면 명단으로 확인</td><td>시트의 명단으로 확인</td></tr>
+          <tr><td>과제 파일</td><td>파일 이름만 기록</td><td>드라이브 폴더에 파일 저장</td></tr>
+          <tr><td>쓰임</td><td>디자인·흐름 확인, 시연</td><td><b>실제 수업</b></td></tr>
+        </table></div>
+        <div class="warnbox">⚠ 체험 모드는 사이트를 인터넷에 올려도 수강생끼리 데이터가 공유되지 않습니다. 실제 수업에서는 꼭 운영 모드로 연결해 주세요.</div>
+      </section>
+
+      <section class="g-sec" id="live">
+        <h2>7. 운영 모드 연결 (구글 시트, 무료)</h2>
+        <ol class="steps">
+          <li>구글 드라이브에서 <b>새 스프레드시트</b>를 만들고, 과제 파일을 모을 <b>폴더</b>도 하나 만듭니다.</li>
+          <li>스프레드시트 메뉴 <b>[확장 프로그램] → [Apps Script]</b>를 엽니다.</li>
+          <li><code>backend/google-apps-script.gs</code> 내용을 전부 복사해 붙여 넣습니다.</li>
+          <li>맨 위 설정을 고칩니다.
+            <ul>
+              <li><code>DRIVE_FOLDER_ID</code>: 과제 폴더 주소 <code>drive.google.com/drive/folders/<b>이부분</b></code></li>
+              <li><code>CLASS_DATES</code>: 수업 날짜 15개 (사이트 '주차별 강의' 날짜와 같게)</li>
+              <li><code>ADMIN_SALT</code>, <code>ADMIN_HASH</code>: 관리자 비밀번호를 바꿨다면 바꿀 때 화면에 표시된 값</li>
+            </ul>
+          </li>
+          <li>함수 목록에서 <b>setup</b> 을 고르고 <b>[실행]</b> → 권한을 승인합니다. 시트에 탭들이 생깁니다.</li>
+          <li><b>[배포] → [새 배포]</b> → 톱니바퀴에서 <b>웹 앱</b> 선택 → 실행: <b>나</b>, 액세스: <b>모든 사용자</b> → [배포].</li>
+          <li>표시된 <b>웹 앱 URL</b>(<code>https://script.google.com/macros/s/…/exec</code>)을 복사해 config.js 의 <code>backend: { url: "여기" }</code> 에 붙여 넣습니다.</li>
+          <li>사이트를 새로고침하면 '체험 모드' 안내가 사라지고 운영 모드로 동작합니다. 관리자 화면에서 명단을 등록하세요.</li>
+        </ol>
+        <div class="tip">💡 Apps Script 코드를 고친 뒤에는 <b>[배포] → [배포 관리] → ✏️ → 버전: 새 버전 → 배포</b>를 해야 반영됩니다. (주소는 그대로 유지됩니다)</div>
+      </section>
+
+      <section class="g-sec" id="deploy">
+        <h2>8. 인터넷에 올리기 (배포)</h2>
+        <p>이 사이트는 파일만 있으면 되는 '정적 사이트'라 어디에나 무료로 올릴 수 있습니다. <code>backend</code> 폴더는 올리지 않아도 됩니다.</p>
+        <h3>방법 A — Netlify Drop (가장 쉬움, 약 1분)</h3>
+        <ol class="steps">
+          <li><code>app.netlify.com/drop</code> 에 접속해 무료 계정으로 로그인합니다.</li>
+          <li><code>class-site</code> 폴더를 브라우저 화면에 <b>끌어다 놓습니다</b>.</li>
+          <li>잠시 뒤 <code>https://○○○.netlify.app</code> 주소가 생깁니다. 이 주소를 수강생에게 안내하세요.</li>
+          <li>내용을 고친 뒤에는 사이트 관리 화면의 <b>Deploys</b> 에 폴더를 다시 끌어다 놓으면 같은 주소로 바뀝니다.</li>
+        </ol>
+        <h3>방법 B — GitHub Pages</h3>
+        <ol class="steps">
+          <li>GitHub 에 새 저장소(Public)를 만들고 <b>Add file → Upload files</b> 로 class-site 안의 파일을 모두 올립니다.</li>
+          <li>저장소 <b>Settings → Pages</b> 에서 Branch 를 <code>main</code> / <code>(root)</code> 로 정하고 Save.</li>
+          <li>몇 분 뒤 <code>https://아이디.github.io/저장소이름/</code> 주소로 열립니다. 수정할 때는 config.js 를 다시 올리면 됩니다.</li>
+        </ol>
+        <h3>방법 C — 학교 홈페이지 · 웹호스팅 · LMS</h3>
+        <p>FTP 나 파일 업로드가 되는 공간이라면 class-site 폴더의 파일을 그대로 올리면 됩니다. LMS 에는 사이트 주소를 링크로 걸어 두세요.</p>
+        <h3>내용을 바꿀 때 (배포 후)</h3>
+        <ol>
+          <li>관리자 화면에서 고치고 <b>저장하고 적용</b>으로 확인</li>
+          <li>[설정 파일] → <b>config.js 내려받기</b></li>
+          <li>올린 사이트의 config.js 를 새 파일로 교체 (Netlify 는 폴더를 다시 끌어다 놓기)</li>
+        </ol>
+        <div class="tip">💡 공지·명단·출석·과제는 운영 모드라면 구글 시트에 바로 저장되므로 다시 배포할 필요가 없습니다. 다시 배포가 필요한 것은 <b>사이트 글·일정·메뉴</b> 같은 설정뿐입니다.</div>
+      </section>
+
+      <section class="g-sec" id="students">
+        <h2>9. 수강생에게 안내할 내용</h2>
+        <ul>
+          <li>사이트 주소, 그리고 각자의 <b>PIN</b> (로그인: 학번 + 이름 + PIN)</li>
+          <li><b>출석·과제</b> 메뉴: 수업 당일 '지금 출석하기', 과제는 파일을 끌어다 놓고 '제출하기' (최대 10MB · pdf, docx, hwp 등)</li>
+          <li><b>주차별 강의</b>에서 학습 내용·참고 영상·과제 마감까지 남은 시간을 확인할 수 있음</li>
+          <li><b>수업 달력</b>에서 날짜를 누르면 그날 수업 내용이 나옴</li>
+          <li>휴대폰에서는 오른쪽 위 ☰ 버튼으로 메뉴를 엽니다</li>
+        </ul>
+      </section>
+
+      <section class="g-sec" id="security">
+        <h2>10. 보안 · 개인정보 안내</h2>
+        <ul>
+          <li><b>관리자 비밀번호</b>는 코드에 그대로 적히지 않고 SHA-256 <b>해시값</b>으로만 저장됩니다. 기본 비밀번호(<code>admin2026</code>)는 반드시 바꿔 주세요. 짐작하기 어려운 8자 이상을 권장합니다.</li>
+          <li>정적 사이트의 한계상, 화면 잠금은 '편리한 잠금 장치' 수준입니다. <b>운영 모드에서는 수강생 데이터(명단·출석·과제·신청서)를 구글 서버가 비밀번호를 다시 확인한 뒤에만 내보내므로</b>, 실제 데이터는 서버 쪽에서 보호됩니다.</li>
+          <li>체험 모드의 데이터는 각 브라우저에 저장됩니다. 공용 PC에서 시연한 뒤에는 브라우저의 사이트 데이터를 지워 주세요.</li>
+          <li>수강 신청서에는 개인정보 수집 동의 항목이 있습니다. 학교 개인정보 지침에 맞게 문구를 고치고, 학기가 끝나면 시트 데이터를 정리하세요.</li>
+          <li>성적처럼 민감한 정보는 이 사이트나 시트에 두지 마세요.</li>
+        </ul>
+      </section>
+
+      <section class="g-sec" id="trouble">
+        <h2>11. 문제 해결</h2>
+        <div class="g-scroll"><table class="g-table">
+          <tr><th>증상</th><th>해결</th></tr>
+          <tr><td>화면이 하얗게 나오거나 "config.js 를 불러오지 못했습니다"</td><td>config.js 를 직접 고치다 쉼표·따옴표가 빠졌을 가능성이 큽니다. 마지막으로 고친 부분을 확인하거나, 관리자 화면에서 내려받은 config.js 로 바꾸세요.</td></tr>
+          <tr><td>관리자 화면에서 고친 뒤 화면이 이상함</td><td>주소 끝에 <code>?reset-config</code> 를 붙여 열면 원래대로 돌아갑니다.</td></tr>
+          <tr><td>다른 컴퓨터에서는 수정한 내용이 안 보임</td><td>정상입니다. [설정 파일] → config.js 내려받기 → 사이트 파일 교체를 해 주세요.</td></tr>
+          <tr><td>비밀번호를 잊어버림</td><td>config.js 의 <code>admin</code> 부분을 아래 기본값으로 되돌리면 비밀번호가 <code>admin2026</code> 이 됩니다.<pre>admin: {
+  salt: "rw-2026",
+  passwordHash: "66be70f79fa4b7469c43b9e9c3fd7db4742d663e11b45f70c38b37929a0782a3"
+},</pre></td></tr>
+          <tr><td>운영 모드에서 "서버에 연결하지 못했습니다"</td><td>backend.url 이 <code>/exec</code> 로 끝나는지, 배포 시 액세스를 '모든 사용자'로 했는지 확인하세요.</td></tr>
+          <tr><td>운영 모드 관리자 로그인 실패</td><td>Apps Script 의 ADMIN_SALT / ADMIN_HASH 가 config.js 의 admin 값과 같은지 확인하고 새 버전으로 다시 배포하세요.</td></tr>
+          <tr><td>출석 버튼이 눌리지 않음</td><td>수업일(달력의 화요일)에만 열립니다. 일정이 바뀌었다면 config.js 의 schedule 과 Apps Script 의 CLASS_DATES 를 함께 고치세요.</td></tr>
+          <tr><td>엑셀에서 학번·PIN 앞의 0 이 사라짐</td><td>엑셀이 숫자로 바꾼 것입니다. 자동 생성 PIN 은 1000~9999 라 영향이 없습니다. 학번이 0으로 시작하면 엑셀 '데이터 → 텍스트/CSV' 로 불러오세요.</td></tr>
+        </table></div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer"><p class="copyright">AI와 영어교육 · 수업 사이트 안내서</p></footer>
+</body>
+</html>
