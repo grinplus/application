@@ -145,7 +145,7 @@
   Object.assign(X, { api, store, LIVE });
 
   const modeNote = LIVE ? "" :
-    `<p class="mode-note">🧪 <b>체험 모드</b> — 데이터가 이 브라우저에만 저장됩니다. 실제 수업에서는 config.js 의 backend 주소를 연결하세요.</p>`;
+    `<p class="mode-note"><b>체험 모드</b> — 데이터가 이 브라우저에만 저장됩니다. 실제 수업에서는 config.js 의 backend 주소를 연결하세요.</p>`;
   const body = (key) => {
     const sec = $(`[data-feature="${key}"]`);
     return sec ? $(".feature-body", sec) : null;
@@ -185,7 +185,7 @@
       bar.id = "noticeBar";
       bar.className = "notice-bar";
       bar.href = "#notices";
-      bar.innerHTML = `<b>📢 중요</b> <span>${esc(imp.title)}</span>`;
+      bar.innerHTML = `<b>중요</b> <span>${esc(imp.title)}</span>`;
       ($(".hero-main") || $(".hero-content")).prepend(bar);
     }
   };
@@ -213,7 +213,7 @@
     voteBox.innerHTML = `
       ${modeNote}
       <div class="card poll-admin" id="pollAdmin" hidden></div>
-      <div class="card poll-closed" id="pollClosed" hidden>🔒 숨긴 설문입니다. 수강생 화면에는 이 섹션이 보이지 않습니다.</div>
+      <div class="card poll-closed" id="pollClosed" hidden>숨긴 설문입니다. 수강생 화면에는 이 섹션이 보이지 않습니다.</div>
       <div class="vote-layout">
         <form class="card vote-card" id="voteForm" novalidate>
           <h3>주제 선택</h3>
@@ -525,7 +525,7 @@
     stuBox.innerHTML = `
       ${modeNote}
       <form class="card login-card" id="loginForm" novalidate>
-        <div class="login-icon">🔐</div>
+        <div class="login-icon" aria-hidden="true"></div>
         <h3>수강생 로그인</h3>
         ${notice ? `<p class="login-notice">${esc(notice)}</p>` : ""}
         <div class="field"><label for="lg-sid">학번</label><input id="lg-sid" name="sid" inputmode="numeric" autocomplete="username" placeholder="2026123456"><div class="field-error"></div></div>
@@ -571,13 +571,13 @@
       </div>
       <div class="student-grid">
         <div class="card att-card">
-          <h3>📍 출석 체크</h3>
+          <h3>출석 체크</h3>
           <div class="att-today" id="attToday">불러오는 중…</div>
           <div class="att-grid" id="attGrid"></div>
           <div class="att-summary" id="attSummary"></div>
         </div>
         <div class="card sub-card">
-          <h3>📝 과제 제출</h3>
+          <h3>과제 제출</h3>
           ${hwWeeks.length ? `
           <form id="subForm" novalidate>
             <div class="field">
@@ -697,7 +697,7 @@
         const err = checkFile(f);
         info.hidden = false;
         info.className = "file-info " + (err ? "bad" : "");
-        info.innerHTML = `📄 <b>${esc(f.name)}</b> <small>${esc(fmtSize(f.size))}</small>${err ? `<div>${esc(err)}</div>` : ""}`;
+        info.innerHTML = `<b>${esc(f.name)}</b> <small>${esc(fmtSize(f.size))}</small>${err ? `<div>${esc(err)}</div>` : ""}`;
         msg.className = "form-msg";
       };
       fileIn.addEventListener("change", showFile);
@@ -908,7 +908,7 @@
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="evPopTitle">
           <button class="modal-x" type="button" aria-label="닫기">×</button>
           <div class="modal-body">
-            <span class="badge">📅 일정 안내</span>
+            <span class="badge">일정 안내</span>
             <h2 id="evPopTitle">${list.length === 1 ? esc(list[0].title) : "다가오는 일정"}</h2>
             <ul class="ev-pop-list">${list.map((ev) => `
               <li><b>${esc(fmtDate(X.parseDate(ev.date)))}${ev.time ? " " + esc(ev.time) : ""}</b>${list.length > 1 ? ` · ${esc(ev.title)}` : ""}

@@ -1,24 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" role="img" aria-label="Instructor illustration">
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#cfeefd"/>
-      <stop offset="1" stop-color="#eaf8ff"/>
+      <stop offset="0" stop-color="#F1F5F9"/>
+      <stop offset="1" stop-color="#F8FAFC"/>
     </linearGradient>
     <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#7fdbe8"/>
-      <stop offset="1" stop-color="#1689a8"/>
+      <stop offset="0" stop-color="#CBD5E1"/>
+      <stop offset="1" stop-color="#94A3B8"/>
     </linearGradient>
     <linearGradient id="hair" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#3a2621"/>
       <stop offset="1" stop-color="#22140f"/>
     </linearGradient>
     <linearGradient id="blazer" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#174b6d"/>
-      <stop offset="1" stop-color="#0f3b57"/>
+      <stop offset="0" stop-color="#1E293B"/>
+      <stop offset="1" stop-color="#0F172A"/>
     </linearGradient>
   </defs>
 
-  <!-- 배경: 하늘 + 바다 수평선 -->
+  <!-- 배경: 슬레이트 면 + 수평선 -->
   <rect width="400" height="500" fill="url(#sky)"/>
   <circle cx="318" cy="92" r="34" fill="#fff" opacity=".55"/>
   <rect y="300" width="400" height="200" fill="url(#sea)"/>
@@ -34,8 +34,8 @@
   <!-- 재킷 + 이너 -->
   <path d="M52 500 C62 410 120 366 200 360 C280 366 338 410 348 500 Z" fill="url(#blazer)"/>
   <path d="M166 364 L200 440 L234 364 C222 360 178 360 166 364 Z" fill="#f6f1ea"/>
-  <path d="M166 364 L148 372 L188 452 L200 440 Z" fill="#0c3149"/>
-  <path d="M234 364 L252 372 L212 452 L200 440 Z" fill="#0c3149"/>
+  <path d="M166 364 L148 372 L188 452 L200 440 Z" fill="#020617"/>
+  <path d="M234 364 L252 372 L212 452 L200 440 Z" fill="#020617"/>
   <circle cx="200" cy="384" r="3.2" fill="#e0a43a"/>
   <path d="M190 378 C194 392 206 392 210 378" fill="none" stroke="#e0a43a" stroke-width="1.6"/>
 

@@ -261,9 +261,9 @@
               </summary>
               <div class="week-body">
                 <dl class="week-meta">
-                  <div><dt>📅 날짜</dt><dd>${esc(fmtDate(w.date))}</dd></div>
+                  <div><dt>날짜</dt><dd>${esc(fmtDate(w.date))}</dd></div>
                   <div><dt>⏰ 시간</dt><dd>${esc(w.time)}</dd></div>
-                  <div><dt>💻 수업 방식</dt><dd>${esc(w.place)}${joinLink(w)}</dd></div>
+                  <div><dt>수업 방식</dt><dd>${esc(w.place)}${joinLink(w)}</dd></div>
                 </dl>
                 <div class="week-cols">
                   <div>
@@ -282,7 +282,7 @@
                 ${w.assignment ? `
                 <div class="assignment ${r.cls}">
                   <div class="as-head">
-                    <span class="as-label">📝 과제</span>
+                    <span class="as-label">과제</span>
                     <strong>${esc(w.assignment.title)}</strong>
                   </div>
                   <p>${esc(w.assignment.desc)}</p>
@@ -512,7 +512,7 @@
             ${s.bio ? `${s.bioLabel ? `<h4 class="profile-label">${esc(s.bioLabel)}</h4>` : ""}<p>${esc(s.bio)}</p>` : ""}
             ${s.career && s.career.length ? `${s.careerLabel ? `<h4 class="profile-label">${esc(s.careerLabel)}</h4>` : ""}<ul>${s.career.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
             <div class="contact">
-              <a class="btn" href="mailto:${esc(s.email)}">✉️ ${esc(s.email)}</a>
+              <a class="btn" href="mailto:${esc(s.email)}">${esc(s.email)}</a>
               ${s.office ? `<span class="office">${esc(s.office)}</span>` : ""}
             </div>
           </div>
@@ -682,9 +682,9 @@
             <div class="dp-item">
               <span class="chip now">${w.no}주차 수업</span>
               <h4>${esc(w.title)}</h4>
-              <div class="dp-meta">⏰ ${esc(w.time)}<br>💻 ${esc(w.place)}${joinLink(w)}</div>
+              <div class="dp-meta">${esc(w.time)}<br>${esc(w.place)}${joinLink(w)}</div>
               ${w.contents && w.contents.length ? `<ul class="contents">${w.contents.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}
-              ${w.assignment ? `<div class="dp-hw">📝 과제: ${esc(w.assignment.title)}</div>` : ""}
+              ${w.assignment ? `<div class="dp-hw">과제 · ${esc(w.assignment.title)}</div>` : ""}
               <button class="btn small" type="button" data-week="${w.no}">주차 상세 보기 →</button>
             </div>`;
         });
