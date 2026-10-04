@@ -10,9 +10,9 @@
 window.SITE_CONFIG = {
   /* ---------- 기본 정보 ---------- */
   site: {
-    title: "AI와 영어교육",
+    title: "AI & English Language Education",
     version: "v1.0.0",               // 상단 제목 오른쪽에 빨간 글씨로 표시 (비우면 숨김)
-    footer: "© 2026 읽기쓰기 프로그램 · AI와 영어교육"
+    footer: "© 2026 읽기쓰기 프로그램 · AI & English Language Education"
   },
 
   /* ---------- 상단 메뉴 (id = 이동할 섹션) ---------- */
@@ -68,7 +68,7 @@ window.SITE_CONFIG = {
     delaySeconds: 2,                 // 사이트에 들어오고 몇 초 뒤에 뜰지
     badge: "수강 신청 안내",
     title: "추가 수강 신청 접수 중",
-    text: "AI와 영어교육 · 읽기 전략 강의의 추가 수강 신청을 받고 있습니다.",
+    text: "AI & English Language Education · 읽기 전략 강의의 추가 수강 신청을 받고 있습니다.",
     points: [
       "신청 기간: 2026. 9. 28 ~ 10. 9",
       "잔여 정원: 5명 (선착순 마감)",
@@ -99,7 +99,7 @@ window.SITE_CONFIG = {
     image: "images/hero.jpg",
     imageAlt: "AI와 사람이 함께하는 언어 학습 일러스트",
     badge: "2026 읽기쓰기 프로그램",
-    title: "AI와 영어교육",
+    title: "AI & English Language Education",
     subtitle: "읽기 전략",
     text: "영어 텍스트를 훑고, 깊이 이해하고, 비판적으로 읽는 전략을 배우고, AI 도구로 영어 읽기 수업을 직접 설계해 봅니다. 15주 동안 '영어를 잘 읽는 사람'에서 '영어 읽기를 잘 가르치는 사람'으로 성장합니다.",
     // link 를 비워 두면 사이트 안의 수강 신청서로 이동합니다 (외부 신청 페이지가 있으면 주소 입력)
@@ -418,7 +418,7 @@ window.SITE_CONFIG = {
   infographic: {
     id: "infographic",
     title: "프로그램 한눈에 보기",
-    lead: "AI와 영어교육 · 읽기 전략 프로그램의 흐름을 한 장으로 정리했습니다.",
+    lead: "AI & English Language Education · 읽기 전략 프로그램의 흐름을 한 장으로 정리했습니다.",
     facts: [
       { icon: "🗓️", value: "15주",      label: "매주 화요일 100분" },
       { icon: "💻", value: "100%",      label: "온라인 실시간 (Zoom)" },
