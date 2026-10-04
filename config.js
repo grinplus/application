@@ -12,7 +12,7 @@ window.SITE_CONFIG = {
   /* ---------- 기본 정보 ---------- */
   site: {
     title: "AI & English Language Education",
-    version: "v1.2.1",               // 상단 제목 오른쪽에 회색 글씨로 표시 (비우면 숨김)
+    version: "v1.3.0",               // 상단 제목 오른쪽에 회색 글씨로 표시 (비우면 숨김)
     footer: "© 2026 Reading & Writing Program · AI & English Language Education"
   },
 
@@ -299,12 +299,10 @@ window.SITE_CONFIG = {
       { name: "email",   label: "Email",      type: "email", required: true, placeholder: "name@university.ac.kr" },
       { name: "phone",   label: "Phone",      type: "tel",   required: false, placeholder: "010-0000-0000", pattern: "^[0-9\\-\\s]{9,13}$", patternMessage: "Please enter your phone number using digits and hyphens." },
       { name: "level",   label: "My English reading level", type: "radio", required: true, options: ["Beginner", "Intermediate", "Advanced"] },
-      { name: "motive",  label: "Why do you want to take this course?", type: "textarea", required: true, placeholder: "Tell us what you hope to learn in this course." },
-      // type "pin": 로그인할 때 쓸 숫자 4자리 (학생이 직접 정함 → 강의 관리 명단에 그대로 등록)
-      { name: "pin",     label: "Create a login PIN", type: "pin", required: true, placeholder: "4 digits", pattern: "^[0-9]{4}$", patternMessage: "Please enter exactly 4 digits." }
+      { name: "motive",  label: "Why do you want to take this course?", type: "textarea", required: true, placeholder: "Tell us what you hope to learn in this course." }
     ],
     consent: "I agree to the collection and use of my personal information (name, student ID, contact details) for course management.",
-    successMessage: "Your enrollment has been received. Once the instructor approves it, you can log in under 'Attendance' with your student ID, name, and PIN to see the weekly lessons."
+    successMessage: "Your enrollment has been received. Once the instructor approves it, click 'Log in' at the top right and enter your student ID and name to see the weekly lessons."
   },
 
   /* ---------- 수강생 공간: 로그인 · 출석 · 과제 제출 ----------
@@ -315,8 +313,7 @@ window.SITE_CONFIG = {
   student: {
     id: "student",
     title: "Attendance & Assignments",
-    lead: "Approved students can log in to check in for class, submit assignments, and see the weekly lessons.",
-    pinLabel: "PIN (the 4 digits you chose when enrolling)",
+    lead: "Approved students can log in with their student ID and name to check in for class and see the weekly lessons.",
     maxFileMB: 10,
     accept: ".pdf,.doc,.docx,.hwp,.hwpx,.ppt,.pptx,.zip,.jpg,.png",
     allowLate: false                 // true 면 마감 후에도 제출 가능 (지각 제출로 표시)

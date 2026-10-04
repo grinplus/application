@@ -95,6 +95,8 @@ CREATE TABLE IF NOT EXISTS events (id text PRIMARY KEY, date text NOT NULL, time
 -- v1.1: 수강생 승인 상태 (approved / pending) 와 등록 시각
 ALTER TABLE roster ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'approved';
 ALTER TABLE roster ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+-- v1.3: Google Drive 공유 주소로 과제 제출
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS link text NOT NULL DEFAULT '';
 `;
 // 4자리 PIN (신청서에 PIN 이 없으면 자동 생성)
 const randomPin = () => String(crypto.randomInt(1000, 10000));
@@ -225,11 +227,11 @@ const ACTIONS = {
 
   /* 로그인 · 내 기록 */
   async login(req) {
+    // 학번 + 이름으로 로그인 (이름은 앞뒤 공백 · 여러 칸 공백 · 대소문자 차이를 무시)
+    const norm = (v) => String(v || "").trim().replace(/\s+/g, " ").toLowerCase();
     const r = await q("SELECT sid, name, pin, status FROM roster WHERE sid = $1", [String(req.sid || "").trim()]);
     const s = r.rows[0];
-    if (!s || s.name.trim() !== String(req.name || "").trim() || s.pin.trim() !== String(req.pin || "").trim()) {
-      fail("Your student ID, name, or PIN is incorrect.");
-    }
+    if (!s || norm(s.name) !== norm(req.name)) fail("Your student ID or name is incorrect. Please use the same details as on your enrollment form.");
     if (s.status !== "approved") fail(PENDING_MSG);
     return { sid: s.sid, name: s.name, token: token(s.sid) };
   },
@@ -242,12 +244,16 @@ const ACTIONS = {
   async status(req) {
     const me = await requireStudent(req);
     const a = await q("SELECT week, at FROM attendance WHERE sid = $1", [me.sid]);
-    const s = await q("SELECT at, week, file_name, size, late, file_id FROM submissions WHERE sid = $1 ORDER BY at", [me.sid]);
+    const s = await q("SELECT at, week, file_name, size, late, file_id, link FROM submissions WHERE sid = $1 ORDER BY at", [me.sid]);
+    const ap = await q("SELECT data FROM applications WHERE sid = $1 ORDER BY at DESC LIMIT 1", [me.sid]);
+    const d = (ap.rows[0] && ap.rows[0].data) || {};
     const attendance = {};
     a.rows.forEach((r) => (attendance[r.week] = iso(r.at)));
     return {
       attendance,
-      submissions: s.rows.map((r) => ({ at: iso(r.at), week: r.week, fileName: r.file_name, size: r.size, late: r.late, url: fileUrl(r.file_id) }))
+      submissions: s.rows.map((r) => ({ at: iso(r.at), week: r.week, fileName: r.file_name, size: r.size, late: r.late, url: r.link || fileUrl(r.file_id) })),
+      // 과제 제출 팝업에 보여 줄 인적 사항 (수강 신청서 내용)
+      profile: { major: String(d.major || ""), year: String(d.year || ""), email: String(d.email || "") }
     };
   },
 
@@ -263,9 +269,24 @@ const ACTIONS = {
     return { at: iso(r.rows[0].at) };
   },
 
-  /* 과제 파일 제출 → files 테이블에 파일, submissions 에 기록 */
+  /* 과제 제출
+     · Google Drive 공유 주소(link): 제출 시각과 지각 여부는 서버가 직접 판단
+     · 파일(data): 예전 방식 (files 테이블에 저장) */
   async submit(req) {
     const me = await requireStudent(req);
+    if (req.link != null) {
+      const link = String(req.link).trim();
+      if (!/^https:\/\/(drive|docs)\.google\.com\/\S+$/i.test(link) || link.length > 2000) fail("Please enter a valid Google Drive or Google Docs share link.");
+      const week = Number(req.week);
+      const w = ((await savedWeeks()) || CONFIG_WEEKS)[week - 1];
+      if (!w || !w.assignment || !w.assignment.due) fail("There is no assignment for this week.");
+      const due = new Date(String(w.assignment.due).trim().replace(" ", "T") + ":00+09:00");   // 마감은 한국 시간
+      const late = !isNaN(due) && Date.now() > due.getTime();
+      if (late && !(CFG.student && CFG.student.allowLate)) fail("This assignment is closed.");
+      const r = await q(`INSERT INTO submissions (sid, name, week, file_name, size, late, link) VALUES ($1, $2, $3, $4, 0, $5, $6) RETURNING at`,
+        [me.sid, me.name, week, String(req.fileName || "Google Drive link").slice(0, 200), late, link]);
+      return { at: iso(r.rows[0].at), late };
+    }
     if (!req.data || !req.fileName) fail("No file was received.");
     const bytes = Buffer.from(String(req.data), "base64");
     if (bytes.length > MAX_FILE_MB * 1024 * 1024) fail(`The file is too large (${MAX_FILE_MB}MB max).`);
@@ -319,13 +340,13 @@ const ACTIONS = {
       q("SELECT sid, name, pin, status, created_at FROM roster ORDER BY created_at, sid"),
       q("SELECT at, data FROM applications ORDER BY at"),
       q("SELECT sid, name, week, at FROM attendance ORDER BY at"),
-      q("SELECT at, sid, name, week, file_name, size, late, file_id FROM submissions ORDER BY at")
+      q("SELECT at, sid, name, week, file_name, size, late, file_id, link FROM submissions ORDER BY at")
     ]);
     return {
       roster: ro.rows.map((r) => ({ sid: r.sid, name: r.name, pin: r.pin, status: r.status, createdAt: iso(r.created_at) })),
       applications: ap.rows.map((r) => Object.assign({}, r.data, { at: iso(r.at) })),
       attendance: at.rows.map((r) => ({ at: iso(r.at), sid: r.sid, name: r.name, week: r.week })),
-      submissions: sb.rows.map((r) => ({ at: iso(r.at), sid: r.sid, name: r.name, week: r.week, fileName: r.file_name, size: r.size, late: r.late, url: fileUrl(r.file_id) }))
+      submissions: sb.rows.map((r) => ({ at: iso(r.at), sid: r.sid, name: r.name, week: r.week, fileName: r.file_name, size: r.size, late: r.late, url: r.link || fileUrl(r.file_id) }))
     };
   },
   async saveRoster(req) {
@@ -419,7 +440,10 @@ const ACTIONS = {
       const o = Object.assign({}, w, {
         title: str(w.title), summary: str(w.summary),
         contents: (Array.isArray(w.contents) ? w.contents : []).map(str).filter(Boolean),
-        videos: links(w.videos), materials: links(w.materials)
+        videos: links(w.videos), materials: links(w.materials),
+        // HTML 임베드 코드 (사이트에서는 격리된 iframe 안에서 보여 줌)
+        embeds: (Array.isArray(w.embeds) ? w.embeds : []).filter((x) => x && String(x.code || "").trim()).slice(0, 10)
+          .map((x) => ({ title: str(x.title), code: String(x.code).slice(0, 20000) }))
       });
       if (o.date && !/^\d{4}-\d{2}-\d{2}$/.test(String(o.date))) delete o.date;
       if (o.assignment) {

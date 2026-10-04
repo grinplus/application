@@ -65,16 +65,17 @@
       // 관리자가 명단을 등록했다면 명단과 대조, 없으면 체험용으로 누구나 로그인
       const roster = store.get("roster", []);
       if (roster.length) {
+        const norm = (v) => String(v || "").trim().replace(/\s+/g, " ").toLowerCase();
         const r = roster.find((x) => String(x.sid).trim() === String(sid).trim());
-        if (!r || String(r.name).trim() !== String(name).trim() || String(r.pin).trim() !== String(pin).trim()) {
-          throw new Error("Your student ID, name, or PIN is incorrect.");
-        }
+        if (!r || norm(r.name) !== norm(name)) throw new Error("Your student ID or name is incorrect. Please use the same details as on your enrollment form.");
         if ((r.status || "approved") !== "approved") throw new Error("Your enrollment is waiting for instructor approval. You can log in once it is approved.");
       }
+      const known = roster.find((x) => String(x.sid).trim() === String(sid).trim());
+      const realName = known ? known.name : String(name).trim();
       const names = store.get("names", {});
-      names[sid] = name;
+      names[sid] = realName;
       store.set("names", names);
-      return { ok: true, token: "demo", sid, name };
+      return { ok: true, token: "demo", sid: String(sid).trim(), name: realName };
     },
     getNotices() {
       return { ok: true, notices: store.get("notices", (C.notices && C.notices.items) || []) };
@@ -148,7 +149,9 @@
       return { ok: true, roster, applications: store.get("applications", []), attendance, submissions };
     },
     status({ sid }) {
-      return { ok: true, attendance: store.get("att_" + sid, {}), submissions: store.get("subs_" + sid, []) };
+      const app = store.get("applications", []).filter((a) => String(a.sid) === String(sid)).pop() || {};
+      return { ok: true, attendance: store.get("att_" + sid, {}), submissions: store.get("subs_" + sid, []),
+        profile: { major: app.major || "", year: app.year || "", email: app.email || "" } };
     },
     attend({ sid, week, date }) {
       if (date !== keyOf(today())) throw new Error("Today is not the class day for this week.");
@@ -158,11 +161,12 @@
       store.set("att_" + sid, att);
       return { ok: true, at: att[week] };
     },
-    submit({ sid, week, fileName, size, late }) {
+    submit({ sid, week, fileName, size, late, link }) {
       const subs = store.get("subs_" + sid, []);
-      subs.push({ week, fileName, size, late, at: new Date().toISOString() });
+      const at = new Date().toISOString();
+      subs.push({ week, fileName: fileName || "Google Drive link", size: size || 0, late, at, url: link || "" });
       store.set("subs_" + sid, subs);
-      return { ok: true };
+      return { ok: true, at, late: !!late };
     }
   };
 
@@ -587,48 +591,152 @@
   const hwWeeks = weeks.filter((w) => w.assignment);
   const todayWeek = () => weeks.find((w) => keyOf(w.date) === keyOf(today())) || null;
 
+  /* ---------- 수강생 로그인 (학번 + 이름) — 오른쪽 위 'Log in' 버튼 팝업과 출석 섹션에서 같이 씀 ---------- */
+  const loginBtn = $("#loginBtn");
+  const syncLoginBtn = () => {
+    if (!loginBtn) return;
+    loginBtn.classList.toggle("in", !!session);
+    loginBtn.innerHTML = session
+      ? `<span class="lb-dot" aria-hidden="true"></span><span class="lb-name">${esc(session.name)}</span>`
+      : `Log in`;
+    loginBtn.setAttribute("aria-label", session ? `Logged in as ${session.name}. Open account menu` : "Student log in");
+  };
+  const afterLogin = () => {
+    syncLoginBtn();
+    if (stuBox && C.student) drawDashboard();
+    refreshVotes();
+    syncWeekAccess();                  // 승인된 수강생: 주차별 학습 내용 열기 (운영 모드는 새로고침됨)
+    // 새로고침 없이 바로 쓸 수 있으면 누르려던 과제 제출 창을 이어서 열기
+    setTimeout(() => {
+      if (accessBusy) return;          // 학습 내용을 받느라 곧 새로고침됨 → 새로고침 뒤에 열림
+      try {
+        const pend = sessionStorage.getItem("rw_pending_submit");
+        if (pend && session) { sessionStorage.removeItem("rw_pending_submit"); openSubmit(Number(pend)); }
+      } catch (e) {}
+    }, 300);
+  };
+  const doLogin = (sid, name) => api("login", { sid: sid.trim(), name: name.trim() }).then((res) => {
+    session = { sid: res.sid, name: res.name, token: res.token };
+    store.set("session", session);
+    afterLogin();
+  });
+  const doLogout = () => {
+    store.del("session");
+    session = null;
+    syncLoginBtn();
+    if (stuBox && C.student) drawLogin();
+    refreshVotes();
+    syncWeekAccess();                  // 학습 내용 다시 잠그기
+  };
+  // 학번 · 이름 입력 확인 (빈 칸이면 안내)
+  const checkLoginFields = (form) => {
+    const labels = { sid: "your student ID", name: "your name" };
+    let first = null;
+    Object.keys(labels).forEach((n) => {
+      const el = form.elements[n];
+      const empty = !el.value.trim();
+      el.closest(".field").classList.toggle("invalid", empty);
+      $(".field-error", el.closest(".field")).textContent = empty ? `Please enter ${labels[n]}.` : "";
+      if (empty && !first) first = el;
+    });
+    if (first) first.focus();
+    return !first;
+  };
+  const loginFields = (prefix) => `
+    <div class="field"><label for="${prefix}-sid">Student ID</label><input id="${prefix}-sid" name="sid" inputmode="numeric" autocomplete="username" placeholder="2026123456"><div class="field-error"></div></div>
+    <div class="field"><label for="${prefix}-name">Name</label><input id="${prefix}-name" name="name" autocomplete="name" placeholder="Jane Kim"><div class="field-error"></div></div>`;
+
   const drawLogin = (notice) => {
+    if (!stuBox) return;
     stuBox.innerHTML = `
       ${modeNote}
       <form class="card login-card" id="loginForm" novalidate>
         <div class="login-icon" aria-hidden="true"></div>
         <h3>Student login</h3>
         ${notice ? `<p class="login-notice">${esc(notice)}</p>` : ""}
-        <div class="field"><label for="lg-sid">Student ID</label><input id="lg-sid" name="sid" inputmode="numeric" autocomplete="username" placeholder="2026123456"><div class="field-error"></div></div>
-        <div class="field"><label for="lg-name">Name</label><input id="lg-name" name="name" autocomplete="name" placeholder="Jane Kim"><div class="field-error"></div></div>
-        <div class="field"><label for="lg-pin">${esc(C.student.pinLabel || "PIN")}</label><input id="lg-pin" name="pin" type="password" inputmode="numeric" autocomplete="current-password"><div class="field-error"></div></div>
+        ${loginFields("lg")}
         <button class="btn btn-lg" type="submit">Log in</button>
         <div class="form-msg" role="status"></div>
       </form>`;
     const form = $("#loginForm");
     form.addEventListener("submit", (e) => {
       e.preventDefault();
-      const labels = { sid: "your student ID", name: "your name", pin: "your PIN" };
-      let first = null;
-      Object.keys(labels).forEach((n) => {
-        const el = form.elements[n];
-        const empty = !el.value.trim();
-        el.closest(".field").classList.toggle("invalid", empty);
-        $(".field-error", el.closest(".field")).textContent = empty ? `Please enter ${labels[n]}.` : "";
-        if (empty && !first) first = el;
-      });
-      if (first) return first.focus();
+      if (!checkLoginFields(form)) return;
       const btn = $("button", form);
       btn.disabled = true;
-      api("login", { sid: form.elements.sid.value.trim(), name: form.elements.name.value.trim(), pin: form.elements.pin.value.trim() })
-        .then((res) => {
-          session = { sid: res.sid, name: res.name, token: res.token };
-          store.set("session", session);
-          drawDashboard();
-          refreshVotes();
-          syncWeekAccess();              // 승인된 수강생: 주차별 학습 내용 열기
-        })
+      doLogin(form.elements.sid.value, form.elements.name.value)
         .catch((err) => { setMsg($(".form-msg", form), "no", err.message); btn.disabled = false; });
     });
   };
 
+  // 오른쪽 위 'Log in' 팝업 (로그인했으면 계정 메뉴: 이름 · 학번 · Log out)
+  const openLoginPopup = (notice) => {
+    if (document.querySelector(".login-modal")) return;
+    const lastFocus = document.activeElement;
+    const wrap = document.createElement("div");
+    wrap.className = "modal-backdrop";
+    wrap.innerHTML = session ? `
+      <div class="modal login-modal" role="dialog" aria-modal="true" aria-labelledby="lmTitle">
+        <button class="modal-x" type="button" aria-label="Close">×</button>
+        <div class="modal-body">
+          <div class="login-icon" aria-hidden="true"></div>
+          <h2 id="lmTitle">${esc(session.name)}</h2>
+          <p>Student ID ${esc(session.sid)}</p>
+          <div class="form-actions">
+            <a class="btn ghost" href="#${esc((C.student && C.student.id) || "student")}" data-act="close">My attendance</a>
+            <button class="btn" type="button" data-act="logout">Log out</button>
+          </div>
+        </div>
+      </div>` : `
+      <form class="modal login-modal" role="dialog" aria-modal="true" aria-labelledby="lmTitle" novalidate>
+        <button class="modal-x" type="button" aria-label="Close">×</button>
+        <div class="modal-body">
+          <div class="login-icon" aria-hidden="true"></div>
+          <h2 id="lmTitle">Student login</h2>
+          <p>${esc(notice || "Log in with your student ID and name.")}</p>
+          ${loginFields("lm")}
+          <div class="form-msg" role="alert"></div>
+          <button class="btn btn-lg modal-cta" type="submit">Log in</button>
+          <p class="lm-foot">Not enrolled yet? <a href="#${esc((C.apply && C.apply.id) || "apply")}" data-act="close">Enroll here</a></p>
+        </div>
+      </form>`;
+    document.body.appendChild(wrap);
+    document.body.classList.add("modal-open");
+    requestAnimationFrame(() => wrap.classList.add("show"));
+    const close = () => {
+      wrap.classList.remove("show");
+      document.body.classList.remove("modal-open");
+      document.removeEventListener("keydown", onKey);
+      setTimeout(() => wrap.remove(), 250);
+      if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+    };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    wrap.addEventListener("click", (e) => {
+      if (e.target === wrap || e.target.closest(".modal-x") || e.target.closest('[data-act="close"]')) close();
+      if (e.target.closest('[data-act="logout"]')) { close(); doLogout(); }
+    });
+    const form = $("form", wrap);
+    if (!form) { $('[data-act="logout"]', wrap).focus(); return; }
+    $("#lm-sid", wrap).focus();
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (!checkLoginFields(form)) return;
+      const btn = $("button[type=submit]", form);
+      btn.disabled = true;
+      btn.textContent = "Logging in…";
+      doLogin(form.elements.sid.value, form.elements.name.value)
+        .then(() => close())
+        .catch((err) => { setMsg($(".form-msg", form), "no", err.message); btn.disabled = false; btn.textContent = "Log in"; });
+    });
+  };
+  if (loginBtn) {
+    loginBtn.hidden = !C.student;
+    loginBtn.addEventListener("click", () => openLoginPopup());
+    syncLoginBtn();
+  }
+
   const drawDashboard = () => {
-    const S = C.student;
     stuBox.innerHTML = `
       ${modeNote}
       <div class="card student-bar">
@@ -636,49 +744,15 @@
         <span class="who"><b>${esc(session.name)}</b> <span class="muted-inline">· ${esc(session.sid)}</span></span>
         <button class="btn ghost small" type="button" id="logoutBtn">Log out</button>
       </div>
-      <div class="student-grid">
-        <div class="card att-card">
-          <h3>Attendance</h3>
-          <div class="att-today" id="attToday">Loading…</div>
-          <div class="att-grid" id="attGrid"></div>
-          <div class="att-summary" id="attSummary"></div>
-        </div>
-        <div class="card sub-card">
-          <h3>Submit an assignment</h3>
-          ${hwWeeks.length ? `
-          <form id="subForm" novalidate>
-            <div class="field">
-              <label for="subWeek">Assignment</label>
-              <select id="subWeek">
-                ${hwWeeks.map((w) => {
-                  const r = remain(w.due);
-                  const closed = r.cls === "closed" && !S.allowLate;
-                  return `<option value="${w.no}" ${closed ? "disabled" : ""}>Week ${w.no} · ${esc(w.assignment.title)} (${esc(r.dday)})</option>`;
-                }).join("")}
-              </select>
-            </div>
-            <div class="sub-due" id="subDue"></div>
-            <label class="drop" id="drop">
-              <input type="file" id="subFile" accept="${esc(S.accept || "")}">
-              <span class="drop-icon">⬆</span>
-              <span class="drop-text"><b>Drag a file here or click to choose</b><small>Max ${S.maxFileMB}MB · ${esc((S.accept || "").replace(/\./g, "").replace(/,/g, ", "))}</small></span>
-            </label>
-            <div class="file-info" id="fileInfo" hidden></div>
-            <button class="btn" type="submit">Submit</button>
-            <div class="form-msg" role="status"></div>
-          </form>
-          <h4 class="sub-h">My submissions</h4>
-          <ul class="sub-list" id="subList"><li class="muted">Loading…</li></ul>` : `<p class="muted">No assignments yet.</p>`}
-        </div>
+      <div class="card att-card">
+        <h3>Attendance</h3>
+        <div class="att-today" id="attToday">Loading…</div>
+        <div class="att-grid" id="attGrid"></div>
+        <div class="att-summary" id="attSummary"></div>
+        <p class="att-hint">To submit an assignment, open the week in <a href="#${esc((C.curriculum && C.curriculum.id) || "curriculum")}">Weekly Lessons</a> and click <b>Submit assignment</b>.</p>
       </div>`;
 
-    $("#logoutBtn").addEventListener("click", () => {
-      store.del("session");
-      session = null;
-      drawLogin();
-      refreshVotes();
-      syncWeekAccess();                  // 학습 내용 다시 잠그기
-    });
+    $("#logoutBtn").addEventListener("click", doLogout);
 
     let status = { attendance: {}, submissions: [] };
     const drawAttendance = () => {
@@ -719,129 +793,206 @@
       }
     };
 
-    const drawSubs = () => {
-      const list = $("#subList");
-      if (!list) return;
-      const subs = (status.submissions || []).slice().sort((a, b) => (a.at < b.at ? 1 : -1));
-      list.innerHTML = subs.length ? subs.map((s) => {
-        return `<li><span class="chip ${s.late ? "hw urgent" : "now"}">Week ${s.week}${s.late ? " · late" : ""}</span>
-                  <span class="sub-file">${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.fileName)}</a>` : esc(s.fileName)}</span>
-                  <small>${s.size ? esc(fmtSize(s.size)) + " · " : ""}${esc(hhmm(s.at))}</small></li>`;
-      }).join("") : `<li class="muted">You have not submitted anything yet.</li>`;
-    };
-
-    // 과제 제출 폼
-    const sf = $("#subForm");
-    if (sf) {
-      const sel = $("#subWeek"), fileIn = $("#subFile"), info = $("#fileInfo"), drop = $("#drop"), msg = $(".form-msg", sf);
-      const firstOpen = hwWeeks.find((w) => !$(`option[value="${w.no}"]`, sel).disabled);
-      const pick = pendingWeek && !$(`option[value="${pendingWeek}"]`, sel)?.disabled ? pendingWeek : firstOpen && firstOpen.no;
-      if (pick) sel.value = String(pick);
-      if (pendingWeek && String(pick) !== String(pendingWeek)) setMsg(msg, "no", `The Week ${pendingWeek} assignment is closed.`);
-      pendingWeek = null;
-      if (!firstOpen) { $("button", sf).disabled = true; setMsg(msg, "no", "There are no open assignments right now."); }
-
-      const drawDue = () => {
-        const w = weeks[Number(sel.value) - 1];
-        if (!w) return;
-        const r = remain(w.due);
-        const done = (status.submissions || []).some((s) => s.week === w.no);
-        $("#subDue").className = "sub-due " + r.cls;
-        $("#subDue").innerHTML = `Due ${esc(fmtDateTime(w.due))} · <b>${esc(r.dday)} ${esc(r.text)}</b>${done ? `<br><small>You already submitted this. Submitting again will replace it with the newest file.</small>` : ""}`;
-      };
-      sel.addEventListener("change", drawDue);
-
-      const exts = (C.student.accept || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      const checkFile = (f) => {
-        if (!f) return "Please choose a file to submit.";
-        const ext = "." + f.name.split(".").pop().toLowerCase();
-        if (exts.length && !exts.includes(ext)) return `${ext} files are not accepted. (${exts.join(", ")})`;
-        if (f.size > C.student.maxFileMB * 1048576) return `The file is too large. Please upload ${C.student.maxFileMB}MB or less. (Current: ${fmtSize(f.size)})`;
-        return "";
-      };
-      const showFile = () => {
-        const f = fileIn.files[0];
-        if (!f) { info.hidden = true; return; }
-        const err = checkFile(f);
-        info.hidden = false;
-        info.className = "file-info " + (err ? "bad" : "");
-        info.innerHTML = `<b>${esc(f.name)}</b> <small>${esc(fmtSize(f.size))}</small>${err ? `<div>${esc(err)}</div>` : ""}`;
-        msg.className = "form-msg";
-      };
-      fileIn.addEventListener("change", showFile);
-      ["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
-      ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
-      drop.addEventListener("drop", (e) => {
-        if (e.dataTransfer.files.length) {
-          const dt = new DataTransfer();
-          dt.items.add(e.dataTransfer.files[0]);
-          fileIn.files = dt.files;
-          showFile();
-        }
-      });
-
-      const toBase64 = (f) => new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => res(String(r.result).split(",")[1]);
-        r.onerror = () => rej(new Error("Could not read the file."));
-        r.readAsDataURL(f);
-      });
-
-      sf.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const f = fileIn.files[0];
-        const err = checkFile(f);
-        if (err) { setMsg(msg, "no", err); fileIn.focus(); return; }
-        const w = weeks[Number(sel.value) - 1];
-        const late = remain(w.due).cls === "closed";
-        if (late && !C.student.allowLate) return setMsg(msg, "no", "This assignment is closed.");
-        const btn = $("button[type=submit]", sf);
-        btn.disabled = true;
-        btn.textContent = "Submitting…";
-        (LIVE ? toBase64(f) : Promise.resolve(null))
-          .then((data) => api("submit", {
-            sid: session.sid, token: session.token, week: w.no, late,
-            fileName: f.name, size: f.size, mimeType: f.type || "application/octet-stream", data
-          }))
-          .then(() => api("status", { sid: session.sid, token: session.token }))
-          .then((res) => {
-            status = res;
-            drawSubs();
-            drawDue();
-            sf.reset();
-            sel.value = String(w.no);
-            info.hidden = true;
-            setMsg(msg, "ok", `Submitted "${f.name}" for Week ${w.no}!${LIVE ? "" : " (Demo mode: only the file name is recorded.)"}`);
-          })
-          .catch((er) => setMsg(msg, "no", er.message))
-          .finally(() => { btn.disabled = false; btn.textContent = "Submit"; });
-      });
-      sf._drawDue = drawDue;
-    }
-
     api("status", { sid: session.sid, token: session.token })
-      .then((res) => { status = res; drawAttendance(); drawSubs(); if (sf) sf._drawDue(); })
+      .then((res) => { status = res; drawAttendance(); markSubmitted(res.submissions); })
       .catch((err) => {
         $("#attToday").innerHTML = `<div class="att-msg off">${esc(err.message)}</div>`;
-        if (/log ?in|token|approv/i.test(err.message)) { store.del("session"); session = null; drawLogin("Please log in again."); }
+        if (/log ?in|token|approv/i.test(err.message)) { store.del("session"); session = null; syncLoginBtn(); drawLogin("Please log in again."); }
       });
+  };
+
+  /* ---------- 제출 완료 소리: 짧은 차임 + "Great!" 음성 ----------
+     브라우저는 사용자가 누른 순간에만 소리를 허락하므로, 'Submit' 을 누를 때 소리 장치를 준비해 둠 */
+  const prepareSound = () => {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ctx = AC ? new AC() : null;
+      if (ctx && ctx.state === "suspended") ctx.resume();
+      return ctx;
+    } catch (e) { return null; }
+  };
+  const playGreat = (ctx) => {
+    try {
+      if (ctx) {
+        const t0 = ctx.currentTime + 0.02;
+        [523.25, 659.25, 783.99, 1046.5].forEach((hz, i) => {      // 도 · 미 · 솔 · 도
+          const o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = "triangle"; o.frequency.value = hz;
+          const s = t0 + i * 0.09;
+          g.gain.setValueAtTime(0.0001, s);
+          g.gain.exponentialRampToValueAtTime(0.22, s + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, s + 0.45);
+          o.connect(g).connect(ctx.destination);
+          o.start(s); o.stop(s + 0.5);
+        });
+        setTimeout(() => ctx.close && ctx.close(), 1500);
+      }
+      if ("speechSynthesis" in window) {
+        const u = new SpeechSynthesisUtterance("Great!");
+        u.lang = "en-US"; u.rate = 1; u.pitch = 1.15; u.volume = 1;
+        const v = speechSynthesis.getVoices().find((x) => /^en(-|_)US/i.test(x.lang));
+        if (v) u.voice = v;
+        setTimeout(() => { speechSynthesis.cancel(); speechSynthesis.speak(u); }, 380);
+      }
+    } catch (e) { /* 소리를 낼 수 없는 환경이면 조용히 넘어감 */ }
+  };
+
+  /* ---------- 과제 제출 팝업: 인적 사항 · 제출 일시 · 제출 주차 · Google Drive 공유 주소 ---------- */
+  const fmtClock = (d) => `${fmtDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  // 주차별 강의의 과제 상자에 '제출함' 표시
+  const markSubmitted = (subs) => {
+    (subs || []).forEach((s) => {
+      const box = $(`#week-${s.week} .assignment`);
+      if (!box) return;
+      let tag = $(".as-submitted", box);
+      if (!tag) { tag = document.createElement("div"); tag.className = "as-submitted"; $(".as-head", box).appendChild(tag); }
+      tag.innerHTML = `✓ Submitted ${esc(hhmm(s.at))}${s.late ? " · late" : ""}`;
+    });
+  };
+  const openSubmit = (weekNo) => {
+    const w = weeks[weekNo - 1];
+    if (!w || !w.assignment || !w.due) return;
+    const lastFocus = document.activeElement;
+    const wrap = document.createElement("div");
+    wrap.className = "modal-backdrop";
+    wrap.innerHTML = `
+      <form class="modal submit-modal" role="dialog" aria-modal="true" aria-labelledby="smTitle" novalidate>
+        <button class="modal-x" type="button" aria-label="Close">×</button>
+        <div class="modal-body">
+          <span class="badge">Week ${w.no} assignment</span>
+          <h2 id="smTitle">${esc(w.assignment.title)}</h2>
+          <div class="sm-grid">
+            <section>
+              <h3>Student</h3>
+              <dl class="sm-info" id="smStudent">
+                <div><dt>Name</dt><dd>${esc(session.name)}</dd></div>
+                <div><dt>Student ID</dt><dd>${esc(session.sid)}</dd></div>
+                <div><dt>Major</dt><dd class="sm-load">…</dd></div>
+                <div><dt>Year</dt><dd class="sm-load">…</dd></div>
+                <div><dt>Email</dt><dd class="sm-load">…</dd></div>
+              </dl>
+            </section>
+            <section>
+              <h3>Submission</h3>
+              <dl class="sm-info">
+                <div><dt>Week</dt><dd>Week ${w.no} · ${esc(fmtDate(w.date))}</dd></div>
+                <div><dt>Due</dt><dd>${esc(fmtDateTime(w.due))} <span class="chip hw ${remain(w.due).cls}" id="smDday">${esc(remain(w.due).dday)}</span></dd></div>
+                <div><dt>Submitted at</dt><dd><b id="smClock">${esc(fmtClock(new Date()))}</b></dd></div>
+              </dl>
+            </section>
+          </div>
+          <div class="sm-prev" id="smPrev" hidden></div>
+          <div class="field">
+            <label for="smLink">Google Drive share link <span class="req">*</span></label>
+            <input id="smLink" type="url" inputmode="url" placeholder="https://drive.google.com/file/d/…" autocomplete="off">
+            <div class="field-error"></div>
+            <small class="sm-help">In Google Drive, click <b>Share</b> and set General access to <b>Anyone with the link · Viewer</b> so your instructor can open it.</small>
+          </div>
+          <div class="form-msg" role="alert"></div>
+          <div class="form-actions">
+            <button class="btn" type="submit">Submit</button>
+            <button class="btn ghost" type="button" data-act="cancel">Cancel</button>
+          </div>
+        </div>
+      </form>`;
+    document.body.appendChild(wrap);
+    document.body.classList.add("modal-open");
+    requestAnimationFrame(() => wrap.classList.add("show"));
+    const form = $("form", wrap), link = $("#smLink", wrap), msg = $(".form-msg", wrap);
+    link.focus();
+    // 제출 일시: 1초마다 현재 시각
+    const tick = setInterval(() => { const c = $("#smClock", wrap); if (c) c.textContent = fmtClock(new Date()); }, 1000);
+    const close = () => {
+      clearInterval(tick);
+      wrap.classList.remove("show");
+      document.body.classList.remove("modal-open");
+      document.removeEventListener("keydown", onKey);
+      setTimeout(() => wrap.remove(), 250);
+      if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+    };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    wrap.addEventListener("click", (e) => {
+      if (e.target === wrap || e.target.closest(".modal-x") || e.target.closest('[data-act="cancel"]') || e.target.closest('[data-act="done"]')) close();
+    });
+
+    // 인적 사항 · 이전 제출
+    api("status", { sid: session.sid, token: session.token }).then((res) => {
+      const p = res.profile || {};
+      const dds = $$(".sm-load", wrap);
+      [p.major, p.year, p.email].forEach((v, i) => { if (dds[i]) { dds[i].textContent = v || "—"; dds[i].classList.remove("sm-load"); } });
+      const prev = (res.submissions || []).filter((s) => Number(s.week) === w.no).sort((a, b) => (a.at < b.at ? 1 : -1))[0];
+      if (prev) {
+        const box = $("#smPrev", wrap);
+        box.hidden = false;
+        box.innerHTML = `You already submitted this on <b>${esc(fmtClock(new Date(prev.at)))}</b>${prev.late ? " (late)" : ""}${prev.url ? ` · <a href="${esc(prev.url)}" target="_blank" rel="noopener">open</a>` : ""}.<br><small>Submitting again will replace it with the new link.</small>`;
+      }
+    }).catch(() => $$(".sm-load", wrap).forEach((d) => { d.textContent = "—"; }));
+
+    const closed = remain(w.due).cls === "closed" && !(C.student && C.student.allowLate);
+    if (closed) {
+      setMsg(msg, "no", "This assignment is closed.");
+      $("button[type=submit]", form).disabled = true;
+    }
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const u = link.value.trim();
+      const fieldBox = link.closest(".field");
+      const err = !u ? "Please paste your Google Drive share link."
+        : !/^https:\/\/(drive|docs)\.google\.com\//i.test(u) ? "Please enter a Google Drive or Google Docs link (https://drive.google.com/… or https://docs.google.com/…)." : "";
+      fieldBox.classList.toggle("invalid", !!err);
+      $(".field-error", fieldBox).textContent = err;
+      if (err) return link.focus();
+      const btn = $("button[type=submit]", form);
+      btn.disabled = true;
+      btn.textContent = "Submitting…";
+      const sound = prepareSound();                      // 누른 순간에 준비해야 소리가 남
+      api("submit", { sid: session.sid, token: session.token, week: w.no, link: u, late: remain(w.due).cls === "closed", fileName: "Google Drive link" })
+        .then((res) => {
+          clearInterval(tick);
+          const at = res.at ? new Date(res.at) : new Date();
+          playGreat(sound);
+          $(".modal-body", wrap).innerHTML = `
+            <div class="success-icon sm-pop">✓</div>
+            <h2 id="smTitle" class="sm-thanks">Thank you for your submission!</h2>
+            <p class="sm-great">Great job, ${esc(session.name)}. Your Week ${w.no} assignment has been received.</p>
+            <dl class="sm-info sm-done">
+              <div><dt>Assignment</dt><dd>Week ${w.no} · ${esc(w.assignment.title)}</dd></div>
+              <div><dt>Student</dt><dd>${esc(session.name)} (${esc(session.sid)})</dd></div>
+              <div><dt>Submitted at</dt><dd><b>${esc(fmtClock(at))}</b>${res.late ? " · late" : ""}</dd></div>
+              <div><dt>Link</dt><dd><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a></dd></div>
+            </dl>
+            <div class="form-actions"><button class="btn" type="button" data-act="done">Done</button></div>`;
+          $('[data-act="done"]', wrap).focus();
+          markSubmitted([{ week: w.no, at: at.toISOString(), late: !!res.late }]);
+        })
+        .catch((er) => { if (sound && sound.close) sound.close(); setMsg(msg, "no", er.message); btn.disabled = false; btn.textContent = "Submit"; });
+    });
   };
 
   if (stuBox && C.student) {
     session ? drawDashboard() : drawLogin();
 
-    // 주차별 강의의 '과제 제출하기' → 해당 주차를 골라 둔 채로 이동
+    // 로그인 후 새로고침된 경우: 누르려던 과제 제출 창을 이어서 열기
+    try {
+      const pend = sessionStorage.getItem("rw_pending_submit");
+      if (pend && session) { sessionStorage.removeItem("rw_pending_submit"); setTimeout(() => openSubmit(Number(pend)), 400); }
+    } catch (e) {}
+
+    // 주차별 강의의 'Submit assignment' → 로그인했으면 제출 팝업, 아니면 로그인 안내
     document.addEventListener("click", (e) => {
       const a = e.target.closest("[data-submit-week]");
       if (!a) return;
-      pendingWeek = Number(a.dataset.submitWeek);
+      const no = Number(a.dataset.submitWeek);
       if (session) {
-        const sel = $("#subWeek");
-        const opt = sel && $(`option[value="${pendingWeek}"]`, sel);
-        if (opt && !opt.disabled) { sel.value = String(pendingWeek); sel.dispatchEvent(new Event("change")); }
-        pendingWeek = null;
+        e.preventDefault();
+        openSubmit(no);
       } else {
-        drawLogin(`Log in to submit the Week ${pendingWeek} assignment.`);
+        e.preventDefault();
+        pendingWeek = no;
+        try { sessionStorage.setItem("rw_pending_submit", String(no)); } catch (er) {}
+        openLoginPopup(`Log in to submit the Week ${no} assignment.`);
       }
     });
   }
@@ -881,7 +1032,13 @@
           location.reload();
         });
 
-    const rowHtml = (kind, item) => `
+    const rowHtml = (kind, item) => kind === "embed" ? `
+      <div class="wf-row wf-embed" data-row="embed">
+        <input type="text" class="wf-t" placeholder="제목 (선택)" value="${esc(item.title || "")}" aria-label="임베드 제목">
+        <button type="button" class="icon-btn" data-row-del aria-label="이 임베드 삭제">✕</button>
+        <textarea class="wf-code" rows="4" spellcheck="false" placeholder="&lt;iframe src=&quot;https://…&quot; width=&quot;800&quot; height=&quot;450&quot;&gt;&lt;/iframe&gt;" aria-label="HTML 코드">${esc(item.code || "")}</textarea>
+        <small class="wf-hint"></small>
+      </div>` : `
       <div class="wf-row" data-row="${kind}">
         <input type="text" class="wf-t" placeholder="제목" value="${esc(item.title || "")}" aria-label="제목">
         <input type="url" class="wf-u" placeholder="${kind === "video" ? "https://www.youtube.com/watch?v=…" : "https://drive.google.com/…"}" value="${esc(item.url || "")}" aria-label="주소">
@@ -931,6 +1088,13 @@
               <p class="wf-help">학생이 볼 수 있도록 드라이브에서 <b>공유 → 일반 액세스: '링크가 있는 모든 사용자' · 뷰어</b>로 설정해 주세요. 첨부한 자료는 주차를 펼치면 '미리보기'로 바로 볼 수 있습니다.</p>
             </fieldset>
 
+            <fieldset class="wf-set" data-set="embed">
+              <legend>HTML 임베드 코드 <span class="opt">Padlet · Canva · Google Slides/Forms · Quizlet 등의 '퍼가기(embed)' 코드</span></legend>
+              <div class="wf-rows">${(w.embeds || []).map((m) => rowHtml("embed", m)).join("")}</div>
+              <button type="button" class="btn ghost small" data-row-add="embed">+ 임베드 코드 추가</button>
+              <p class="wf-help">각 서비스의 <b>공유 → 퍼가기(Embed)</b>에서 복사한 HTML 코드를 붙여 넣으면 주차 안에 그대로 보입니다. 코드는 사이트와 분리된 안전한 창 안에서 실행됩니다.</p>
+            </fieldset>
+
             <fieldset class="wf-set">
               <legend><label class="wf-check"><input type="checkbox" id="wfHasAs" ${as ? "checked" : ""}> 이 주차에 과제 있음</label></legend>
               <div class="wf-as" ${as ? "" : "hidden"}>
@@ -953,7 +1117,7 @@
       requestAnimationFrame(() => wrap.classList.add("show"));
       const form = $("form", wrap);
       $("#wfName", wrap).focus();
-      $$(".wf-row", wrap).forEach((row) => { $(".wf-hint", row).textContent = hintFor(row.dataset.row, $(".wf-u", row).value.trim()); });
+      $$(".wf-row", wrap).forEach((row) => { const u = $(".wf-u", row); if (u) $(".wf-hint", row).textContent = hintFor(row.dataset.row, u.value.trim()); });
 
       const close = () => {
         wrap.classList.remove("show");
@@ -978,6 +1142,11 @@
       wrap.addEventListener("input", (e) => {
         const row = e.target.closest(".wf-row");
         if (row && e.target.matches(".wf-u")) $(".wf-hint", row).textContent = hintFor(row.dataset.row, e.target.value.trim());
+        if (row && e.target.matches(".wf-code")) {
+          const v = e.target.value.trim();
+          $(".wf-hint", row).textContent = !v ? "" : /<\s*(iframe|div|blockquote|script|embed|object|video|a)\b/i.test(v)
+            ? "✓ HTML 코드 — 주차를 펼치면 이 내용이 그대로 보입니다" : "HTML 코드가 아닌 것 같습니다. 서비스의 '퍼가기(Embed)' 코드를 붙여 넣어 주세요.";
+        }
       });
       $("#wfHasAs", wrap).addEventListener("change", (e) => { $(".wf-as", wrap).hidden = !e.target.checked; });
 
@@ -1032,8 +1201,12 @@
           summary: $("#wfSum", wrap).value.trim(),
           contents: $("#wfContents", wrap).value.split("\n").map((s) => s.trim()).filter(Boolean),
           videos: rows("video"),
-          materials: rows("material")
+          materials: rows("material"),
+          embeds: $$('.wf-row[data-row="embed"]', wrap)
+            .map((r) => ({ title: $(".wf-t", r).value.trim(), code: $(".wf-code", r).value.trim() }))
+            .filter((x) => x.code)
         });
+        if (!next.embeds.length) delete next.embeds;
         const date = $("#wfDate", wrap).value;
         if (date) next.date = date; else delete next.date;
         if (hasAs) {

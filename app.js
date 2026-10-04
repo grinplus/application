@@ -165,6 +165,42 @@
     return "Link";
   };
 
+  /* HTML 임베드: 관리자가 넣은 코드를 격리된 iframe(srcdoc · sandbox) 안에서 보여 줌
+     · allow-same-origin 을 주지 않아 사이트의 로그인 정보에 접근할 수 없음
+     · 안쪽 문서가 자기 높이를 알려 주면(postMessage) 그 높이에 맞춤 */
+  const embedDoc = (code, id) => `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank">` +
+    `<style>html,body{margin:0;padding:0;background:#fff;font-family:Pretendard,-apple-system,sans-serif;color:#0F172A}iframe,video,img,embed,object{max-width:100%}iframe{border:0}</style></head><body>${code}` +
+    `<script>(function(){var id=${JSON.stringify(id)};function s(){parent.postMessage({rwEmbed:id,h:Math.max(document.documentElement.scrollHeight,document.body.scrollHeight)},"*")}` +
+    `addEventListener("load",s);addEventListener("resize",s);addEventListener("message",function(e){if(e.data==="rwEmbedPing")s()});` +
+    `try{new ResizeObserver(s).observe(document.body)}catch(e){}setTimeout(s,300);setTimeout(s,1500);setTimeout(s,4000)})();<\/script></body></html>`;
+  // 펼쳐진 주차 안의 임베드 자리에 격리된 iframe 을 만들고, 높이를 다시 알려 달라고 요청
+  const mountEmbeds = (root) => {
+    root.querySelectorAll(".embed-slot").forEach((slot) => {
+      let f = slot.querySelector("iframe");
+      if (!f) {
+        f = document.createElement("iframe");
+        f.className = "embed-frame";
+        f.dataset.embedId = slot.dataset.embedId;
+        f.title = slot.dataset.title;
+        f.setAttribute("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation");
+        f.setAttribute("allow", "autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-write");
+        f.allowFullscreen = true;
+        f.srcdoc = slot.dataset.srcdoc;
+        slot.appendChild(f);
+      }
+      [100, 600, 2000].forEach((ms) => setTimeout(() => { try { f.contentWindow.postMessage("rwEmbedPing", "*"); } catch (er) {} }, ms));
+    });
+  };
+  document.addEventListener("toggle", (e) => {
+    if (e.target.open && e.target.querySelectorAll) mountEmbeds(e.target);
+  }, true);
+  window.addEventListener("message", (e) => {
+    const d = e.data;
+    if (!d || typeof d !== "object" || !d.rwEmbed) return;
+    const f = document.querySelector(`iframe[data-embed-id="${String(d.rwEmbed).replace(/[^\w-]/g, "")}"]`);
+    if (f && e.source === f.contentWindow) f.style.height = Math.min(4000, Math.max(80, Number(d.h) || 0) + 4) + "px";
+  });
+
   // 다른 스크립트(features.js)에서 쓸 수 있도록 공유
   window.SITE = { C, esc, $, $$, keyOf, parseDate, addDays, fmtDate, fmtDateTime, today, weeks, nextWeek, remain, pad, reduceMotion, ytId, driveEmbed };
 
@@ -363,6 +399,19 @@
                       ${embed ? `<div class="mat-preview" id="mat-${w.no}-${mi}" hidden></div>` : ""}
                     </li>`;
                   }).join("")}</ul>
+                </div>` : ""}
+                ${w.embeds && w.embeds.length ? `
+                <div class="embeds">
+                  <h4>Interactive content</h4>
+                  ${w.embeds.map((em, ei) => {
+                    const id = `emb-${w.no}-${ei}`;
+                    // 주차를 펼칠 때 iframe 을 만듦 (보이는 상태에서 불러와야 높이를 정확히 잼)
+                    return `
+                    <figure class="embed-box">
+                      ${em.title ? `<figcaption>${esc(em.title)}</figcaption>` : ""}
+                      <div class="embed-slot" data-embed-id="${id}" data-title="${esc(em.title || "Embedded content")}" data-srcdoc="${esc(embedDoc(em.code || "", id))}"></div>
+                    </figure>`;
+                  }).join("")}
                 </div>` : ""}
                 ${w.assignment && r ? `
                 <div class="assignment ${r.cls}">
@@ -666,6 +715,9 @@
     items.forEach((d) => d.addEventListener("toggle", sync));
     sync();
   }
+
+  // 처음부터 펼쳐져 있는 주차(다음 수업)의 임베드
+  $$(".week-item[open]").forEach(mountEmbeds);
 
   /* 참고 영상: 썸네일을 누르면 그 자리에서 YouTube 재생 (처음부터 플레이어를 띄우지 않아 페이지가 가벼움) */
   document.addEventListener("click", (e) => {

@@ -216,7 +216,7 @@
     title: "제목", subtitle: "부제", lead: "설명 문구", text: "내용", badge: "배지", label: "이름", value: "값", sub: "보조 문구",
     icon: "아이콘", items: "항목", footer: "푸터 문구", button: "버튼", applyButton: "수강 신청 버튼", curriculumButton: "커리큘럼 버튼",
     link: "링크 주소", target: "이동할 섹션 id", suffix: "단위", weeks: "주차", summary: "요약", contents: "학습 내용",
-    videos: "참고 영상 (YouTube 주소면 바로 재생)", materials: "수업 자료 (Google Drive 링크)", url: "주소", assignment: "과제", desc: "설명", due: "마감 (YYYY-MM-DD HH:MM)", submit: "제출 주소(선택)",
+    videos: "참고 영상 (YouTube 주소면 바로 재생)", materials: "수업 자료 (Google Drive 링크)", embeds: "HTML 임베드 코드", code: "HTML 코드", url: "주소", assignment: "과제", desc: "설명", due: "마감 (YYYY-MM-DD HH:MM)", submit: "제출 주소(선택)",
     date: "날짜 (YYYY-MM-DD)", time: "시간", place: "수업 방식", onlineLink: "온라인 수업 입장 주소 (Zoom 등)", bioLabel: "소개 제목", careerLabel: "경력 제목", name: "이름", use: "용도", tag: "분류", author: "저자",
     options: "보기", answer: "정답", explain: "해설", question: "문제", type: "유형", q: "질문", a: "답변", photo: "사진 경로",
     role: "소속 / 직함", bio: "소개", career: "경력", email: "이메일", office: "면담 안내", startDate: "첫 수업일 (YYYY-MM-DD)",
@@ -230,7 +230,7 @@
     assessmentTitle: "평가 제목", outcomes: "학습 성과", outcomesTitle: "학습 성과 제목"
   };
   const TEMPLATES = {
-    holidays: { date: "", name: "" }, videos: { title: "", url: "" }, materials: { title: "", url: "" }, career: "", contents: "", points: "", options: "",
+    holidays: { date: "", name: "" }, videos: { title: "", url: "" }, materials: { title: "", url: "" }, embeds: { title: "", code: "" }, career: "", contents: "", points: "", options: "",
     assignment: { title: "", desc: "", due: "", submit: "" }
   };
 
@@ -401,7 +401,7 @@
     }
     if (typeof val === "boolean") return `<label class="ed-check"><input type="checkbox" data-path="${p}" ${val ? "checked" : ""}> ${esc(label)}</label>`;
     if (typeof val === "number") return `<label class="ed-row"><span>${esc(label)}</span><input type="number" data-path="${p}" value="${esc(val)}"></label>`;
-    const long = String(val).length > 60 || /\n/.test(val) || ["text", "bio", "body", "desc", "summary", "explain", "a", "lead", "successMessage", "consent"].includes(key);
+    const long = String(val).length > 60 || /\n/.test(val) || ["text", "bio", "body", "desc", "summary", "explain", "a", "lead", "successMessage", "consent", "code"].includes(key);
     return `<label class="ed-row"><span>${esc(label)}</span>${long
       ? `<textarea data-path="${p}" rows="3">${esc(val)}</textarea>`
       : `<input type="text" data-path="${p}" value="${esc(val)}">`}</label>`;
@@ -545,7 +545,7 @@
     const subSt = (sid, w) => { const s = subs[`${sid}|${w.no}`]; return s ? (s.late ? "late" : "ok") : w.due < now ? "miss" : "open"; };
 
     main().innerHTML = `
-      ${head("강의 관리", "수강 신청을 하면 아래 명단에 <b>승인 대기</b>로 자동 등록됩니다. <b>승인</b>한 수강생만 로그인해 주차별 학습 내용을 보고, 출석·과제를 할 수 있습니다.",
+      ${head("강의 관리", "수강 신청을 하면 아래 명단에 <b>승인 대기</b>로 자동 등록됩니다. <b>승인</b>한 수강생만 오른쪽 위 Log in 에서 <b>학번 + 이름</b>으로 로그인해 주차별 학습 내용을 보고, 출석·과제를 할 수 있습니다.",
         `${refreshBtn}<button class="btn ghost small" id="rsExport">명단 내려받기</button>`)}
       ${modeTip}
 
@@ -563,13 +563,12 @@
         <form class="rs-add" id="rsAddForm" hidden novalidate>
           <input id="rsSid" inputmode="numeric" placeholder="학번" aria-label="학번">
           <input id="rsName" placeholder="이름" aria-label="이름">
-          <input id="rsPinNew" inputmode="numeric" maxlength="4" placeholder="PIN (비우면 자동)" aria-label="PIN">
-          <button class="btn small" type="submit">추가 (승인됨)</button>
+         <button class="btn small" type="submit">추가 (승인됨)</button>
           <button class="btn ghost small" type="button" id="rsAddCancel">취소</button>
         </form>
         <div class="form-msg" id="rsMsg" role="status"></div>
         ${list.length ? `<div class="table-wrap"><table class="a-table rs-table">
-          <thead><tr><th>#</th><th>상태</th><th>학번</th><th>이름</th><th>학과</th><th>학년</th><th>이메일</th><th>PIN</th><th>신청일</th>
+          <thead><tr><th>#</th><th>상태</th><th>학번</th><th>이름</th><th>학과</th><th>학년</th><th>이메일</th><th>신청일</th>
             <th title="출석한 주 / 지난 수업">출석</th><th title="제출한 과제 / 전체 과제">과제</th><th>관리</th></tr></thead>
           <tbody>${list.map((r, i) => {
             const a = apps[r.sid] || {};
@@ -580,15 +579,13 @@
               <td>${esc(r.sid)}</td><td><b>${esc(r.name)}</b></td>
               <td>${esc(a.major || "")}</td><td>${esc(a.year || "")}</td>
               <td class="wrap">${a.email ? `<a href="mailto:${esc(a.email)}">${esc(a.email)}</a>` : ""}</td>
-              <td><code>${esc(r.pin)}</code></td>
-              <td>${esc(fmtDay(a.at || r.createdAt))}</td>
+             <td>${esc(fmtDay(a.at || r.createdAt))}</td>
               <td>${ok ? `${attN(r.sid)}<small>/${pastWeeks.length}</small>` : "-"}</td>
               <td>${ok ? `${subN(r.sid)}<small>/${hw.length}</small>` : "-"}</td>
               <td class="rs-tools">
                 ${ok ? `<button type="button" class="btn ghost small" data-unapprove="${esc(r.sid)}">승인 취소</button>`
                      : `<button type="button" class="btn small" data-approve="${esc(r.sid)}">승인</button>`}
-                <button type="button" class="btn ghost small" data-pin="${esc(r.sid)}">PIN 변경</button>
-                <button type="button" class="icon-btn" data-remove="${esc(r.sid)}" aria-label="${esc(r.name)} 삭제">✕</button>
+               <button type="button" class="icon-btn" data-remove="${esc(r.sid)}" aria-label="${esc(r.name)} 삭제">✕</button>
               </td>
             </tr>`;
           }).join("")}</tbody>
@@ -634,12 +631,11 @@
     $("#rsAddCancel").addEventListener("click", () => { $("#rsAddForm").hidden = true; });
     $("#rsAddForm").addEventListener("submit", (e) => {
       e.preventDefault();
-      const sid = $("#rsSid").value.trim(), name = $("#rsName").value.trim(), pin = $("#rsPinNew").value.trim();
+      const sid = $("#rsSid").value.trim(), name = $("#rsName").value.trim(), pin = "";
       if (!/^\d+$/.test(sid) || !name) return say("no", "학번(숫자)과 이름을 입력해 주세요.");
-      if (pin && !/^\d{4}$/.test(pin)) return say("no", "PIN 은 숫자 4자리로 입력해 주세요. (비우면 자동으로 만들어 드립니다)");
-      act(e.submitter || $("button[type=submit]", e.target), api("addStudent", { adminToken, sid, name, pin }), (res) => {
+     act(e.submitter || $("button[type=submit]", e.target), api("addStudent", { adminToken, sid, name, pin }), (res) => {
         roster.push({ sid, name, pin: res.pin || pin, status: "approved", createdAt: new Date().toISOString() });
-        toast(`${name}(${sid}) 님을 추가했습니다. PIN ${res.pin || pin}`);
+        toast(`${name}(${sid}) 님을 추가했습니다. 학번과 이름으로 로그인할 수 있습니다.`);
       });
     });
     const approveAll = $("#rsApproveAll");
@@ -672,9 +668,9 @@
       }
     });
     $("#rsExport").addEventListener("click", () => download(`수강생현황_${today()}.csv`, toCSV(
-      [["학번", "이름", "상태", "PIN", "학과", "학년", "이메일", "신청일", "출석", "과제"]].concat(roster.map((r) => {
+      [["학번", "이름", "상태", "학과", "학년", "이메일", "신청일", "출석", "과제"]].concat(roster.map((r) => {
         const a = apps[r.sid] || {};
-        return [r.sid, r.name, r.status === "approved" ? "승인" : "승인 대기", r.pin, a.major || "", a.year || "", a.email || "", fmtDay(a.at || r.createdAt), attN(r.sid), subN(r.sid)];
+        return [r.sid, r.name, r.status === "approved" ? "승인" : "승인 대기", a.major || "", a.year || "", a.email || "", fmtDay(a.at || r.createdAt), attN(r.sid), subN(r.sid)];
       })))));
   });
 
