@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" role="img" aria-label="Instructor illustration">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cfeefd"/>
+      <stop offset="1" stop-color="#eaf8ff"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7fdbe8"/>
+      <stop offset="1" stop-color="#1689a8"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a2621"/>
+      <stop offset="1" stop-color="#22140f"/>
+    </linearGradient>
+    <linearGradient id="blazer" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#174b6d"/>
+      <stop offset="1" stop-color="#0f3b57"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 배경: 하늘 + 바다 수평선 -->
+  <rect width="400" height="500" fill="url(#sky)"/>
+  <circle cx="318" cy="92" r="34" fill="#fff" opacity=".55"/>
+  <rect y="300" width="400" height="200" fill="url(#sea)"/>
+  <rect y="298" width="400" height="4" fill="#fff" opacity=".7"/>
+
+  <!-- 뒷머리 -->
+  <path d="M132 180 C118 250 112 330 104 400 C150 418 250 418 296 400 C288 330 282 250 268 180 Z" fill="url(#hair)"/>
+
+  <!-- 목 -->
+  <path d="M182 272 L218 272 L222 360 L178 360 Z" fill="#eebd9c"/>
+  <path d="M182 300 C195 312 205 312 218 300 L218 286 L182 286 Z" fill="#dca787" opacity=".7"/>
+
+  <!-- 재킷 + 이너 -->
+  <path d="M52 500 C62 410 120 366 200 360 C280 366 338 410 348 500 Z" fill="url(#blazer)"/>
+  <path d="M166 364 L200 440 L234 364 C222 360 178 360 166 364 Z" fill="#f6f1ea"/>
+  <path d="M166 364 L148 372 L188 452 L200 440 Z" fill="#0c3149"/>
+  <path d="M234 364 L252 372 L212 452 L200 440 Z" fill="#0c3149"/>
+  <circle cx="200" cy="384" r="3.2" fill="#e0a43a"/>
+  <path d="M190 378 C194 392 206 392 210 378" fill="none" stroke="#e0a43a" stroke-width="1.6"/>
+
+  <!-- 귀 + 귀걸이 -->
+  <ellipse cx="139" cy="222" rx="10" ry="15" fill="#efc2a3"/>
+  <ellipse cx="261" cy="222" rx="10" ry="15" fill="#efc2a3"/>
+  <circle cx="140" cy="242" r="4" fill="#f2f2f2" stroke="#d9c7a0" stroke-width="1"/>
+  <circle cx="260" cy="242" r="4" fill="#f2f2f2" stroke="#d9c7a0" stroke-width="1"/>
+
+  <!-- 얼굴 -->
+  <path d="M140 205 C140 150 170 128 200 128 C232 128 260 150 260 205 C260 255 236 292 200 294 C164 292 140 255 140 205 Z" fill="#f6d2b8"/>
+
+  <!-- 앞머리 (옆 가르마) + 옆머리 -->
+  <path d="M136 214 C126 146 166 112 208 114 C252 116 276 152 266 214 C258 182 240 160 214 150 C200 172 170 196 136 214 Z" fill="url(#hair)"/>
+  <path d="M138 196 C126 256 128 330 152 392 L170 388 C152 330 148 262 152 206 Z" fill="url(#hair)"/>
+  <path d="M262 196 C274 256 272 330 248 392 L230 388 C248 330 252 262 248 206 Z" fill="url(#hair)"/>
+  <path d="M214 150 C236 160 252 176 260 196" fill="none" stroke="#5a3a30" stroke-width="2" opacity=".6"/>
+
+  <!-- 눈썹 -->
+  <path d="M164 196 C172 190 184 190 192 194" fill="none" stroke="#3a2621" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M208 194 C216 190 228 190 236 196" fill="none" stroke="#3a2621" stroke-width="3.2" stroke-linecap="round"/>
+
+  <!-- 눈 -->
+  <ellipse cx="178" cy="214" rx="6.5" ry="7.5" fill="#2b1d1a"/>
+  <ellipse cx="222" cy="214" rx="6.5" ry="7.5" fill="#2b1d1a"/>
+  <circle cx="180.5" cy="211" r="2" fill="#fff"/>
+  <circle cx="224.5" cy="211" r="2" fill="#fff"/>
+  <path d="M168 207 C173 202 183 202 188 207" fill="none" stroke="#2b1d1a" stroke-width="2" stroke-linecap="round"/>
+  <path d="M212 207 C217 202 227 202 232 207" fill="none" stroke="#2b1d1a" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- 코 · 볼 · 입 -->
+  <path d="M200 222 C198 236 196 242 202 245" fill="none" stroke="#d9a283" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="164" cy="240" r="11" fill="#f3a69a" opacity=".35"/>
+  <circle cx="236" cy="240" r="11" fill="#f3a69a" opacity=".35"/>
+  <path d="M184 259 C192 268 208 268 216 259" fill="#c8606a"/>
+  <path d="M184 259 C192 263 208 263 216 259" fill="none" stroke="#a84c56" stroke-width="1.6" stroke-linecap="round"/>
+</svg>

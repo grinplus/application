@@ -461,7 +461,7 @@ window.SITE_CONFIG = {
   instructor: {
     title: "Instructor Profile",
     lead: "Feel free to reach out with any questions.",
-    photo: "images/instructor.jpg",
+    photo: "images/instructor.svg",
     name: "Catherine Kim",
     bioLabel: "About",
     bio: "I have been teaching English in ESL and EFL contexts for over 15 years. My areas of expertise are multimodality, Computer-Assisted Language Learning (CALL), and language education. I also serve on the editorial board of Cogent Education. My goal is to help future English teachers use AI thoughtfully and critically in their own classrooms.",
