@@ -50,18 +50,20 @@
     })();
   }
 
-  /* 관리자가 사이트에서 고친 주차별 강의
-     운영 모드: 서버(DB)가 config.js 와 함께 보내 주는 SITE_CURRICULUM / 체험 모드: 이 브라우저에 저장된 값 */
+  /* 주차별 강의
+     운영 모드: 서버가 보내는 config.js 에는 학습 내용이 빠져 있음(locked).
+               승인된 수강생·관리자가 로그인하면 features.js 가 전체 내용을 받아 이 탭(sessionStorage)에 두고 새로고침
+     체험 모드: 관리자가 이 브라우저에서 고친 값 */
   try {
     const C0 = window.SITE_CONFIG;
     const live = !!(C0 && C0.backend && C0.backend.url);
-    const saved = live ? window.SITE_CURRICULUM : JSON.parse(localStorage.getItem("rw_curriculum") || "null");
+    const saved = JSON.parse((live ? sessionStorage.getItem("rw_full_weeks") : localStorage.getItem("rw_curriculum")) || "null");
     if (C0 && C0.curriculum && Array.isArray(saved)) C0.curriculum.weeks = saved;
   } catch (e) { /* 저장된 값이 없거나 읽을 수 없으면 config.js 그대로 */ }
 
   const C = window.SITE_CONFIG;
   if (!C) {
-    document.body.innerHTML = "<p style='padding:24px'>config.js 를 불러오지 못했습니다. 파일 위치와 문법(쉼표, 따옴표)을 확인하세요.</p>";
+    document.body.innerHTML = "<p style='padding:24px'>Could not load config.js. Please check the file location and syntax.</p>";
     return;
   }
 
@@ -72,7 +74,8 @@
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   /* ---------- 날짜 도우미 ---------- */
-  const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const pad = (n) => String(n).padStart(2, "0");
   const keyOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const parseDate = (s) => {            // "2026-09-01" 또는 "2026-09-07 23:59"
@@ -82,7 +85,7 @@
     return new Date(y, m - 1, day, hh || 0, mm || 0);
   };
   const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
-  const fmtDate = (d) => `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()} (${DAYS[d.getDay()]})`;
+  const fmtDate = (d) => `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   const fmtDateTime = (d) => `${fmtDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const today = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); };
 
@@ -109,7 +112,7 @@
   })();
   // 온라인 수업 입장 버튼 (schedule.onlineLink 가 있을 때만)
   const joinLink = (w) => w.link
-    ? ` <a class="join-link" href="${esc(w.link)}" target="_blank" rel="noopener">수업 입장 →</a>` : "";
+    ? ` <a class="join-link" href="${esc(w.link)}" target="_blank" rel="noopener">Join class →</a>` : "";
 
   // 다음(또는 오늘) 수업 주차
   const nextWeek = weeks.find((w) => w.date >= today()) || null;
@@ -117,19 +120,19 @@
   /* 마감까지 남은 시간 */
   const remain = (due) => {
     const ms = due - new Date();
-    if (ms <= 0) return { text: "마감되었습니다", cls: "closed", dday: "마감" };
+    if (ms <= 0) return { text: "Closed", cls: "closed", dday: "Closed" };
     const d = Math.floor(ms / 864e5), h = Math.floor(ms / 36e5) % 24, m = Math.floor(ms / 6e4) % 60;
     const cal = Math.round((new Date(due.getFullYear(), due.getMonth(), due.getDate()) - today()) / 864e5);
     const dday = cal === 0 ? "D-DAY" : `D-${cal}`;
-    const text = d > 0 ? `${d}일 ${h}시간 남음` : `${h}시간 ${m}분 남음`;
+    const text = d > 0 ? `${d}d ${h}h left` : `${h}h ${m}m left`;
     return { text, cls: cal <= 3 ? "urgent" : "open", dday };
   };
   // 과제 제출 버튼: 외부 주소가 있으면 새 창, 없으면 사이트의 '출석·과제' 제출 화면으로
   const submitButton = (w) => {
     const ext = w.assignment.submit || S.submitLink;
-    if (ext) return `<a class="btn" href="${esc(ext)}" target="_blank" rel="noopener">과제 제출하기</a>`;
-    if (C.student) return `<a class="btn" href="#${esc(C.student.id)}" data-submit-week="${w.no}">과제 제출하기</a>`;
-    return `<a class="btn" href="mailto:${esc(C.instructor.email)}?subject=${encodeURIComponent(`[${w.no}주차 과제] ${w.assignment.title}`)}">과제 제출하기</a>`;
+    if (ext) return `<a class="btn" href="${esc(ext)}" target="_blank" rel="noopener">Submit assignment</a>`;
+    if (C.student) return `<a class="btn" href="#${esc(C.student.id)}" data-submit-week="${w.no}">Submit assignment</a>`;
+    return `<a class="btn" href="mailto:${esc(C.instructor.email)}?subject=${encodeURIComponent(`[Week ${w.no} assignment] ${w.assignment.title}`)}">Submit assignment</a>`;
   };
 
   /* 참고 영상: YouTube 주소에서 영상 ID 찾기 (watch?v= · youtu.be · shorts · embed · live) */
@@ -154,9 +157,9 @@
     if (/\/presentation\//.test(u)) return "Slides";
     if (/\/spreadsheets\//.test(u)) return "Sheets";
     if (/\/forms\//.test(u)) return "Forms";
-    if (/\/folders\//.test(u)) return "폴더";
+    if (/\/folders\//.test(u)) return "Folder";
     if (/drive\.google\.com/.test(u)) return "Drive";
-    return "링크";
+    return "Link";
   };
 
   // 다른 스크립트(features.js)에서 쓸 수 있도록 공유
@@ -188,7 +191,7 @@
     apply.rel = "noopener";
   } else {
     apply.href = C.apply ? "#" + C.apply.id
-      : `mailto:${C.instructor.email}?subject=${encodeURIComponent("[수강 신청] " + H.title)}`;
+      : `mailto:${C.instructor.email}?subject=${encodeURIComponent("[Enrollment] " + H.title)}`;
   }
   $("#curriculumBtn").textContent = H.curriculumButton.label;
   $("#curriculumBtn").href = "#" + H.curriculumButton.target;
@@ -201,7 +204,7 @@
   const setMenu = (open) => {
     nav.classList.toggle("open", open);
     toggle.setAttribute("aria-expanded", String(open));
-    toggle.setAttribute("aria-label", open ? "메뉴 닫기" : "메뉴 열기");
+    toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
   };
   toggle.addEventListener("click", () => setMenu(!nav.classList.contains("open")));
   nav.addEventListener("click", (e) => { if (e.target.closest("a")) setMenu(false); });
@@ -255,7 +258,7 @@
       <section class="section" id="${esc(s.id)}">
         ${head(s, "Why this class")}
         <div class="slider reveal">
-          <div class="slides" tabindex="0" aria-label="${esc(s.title)} 슬라이드">
+          <div class="slides" tabindex="0" aria-label="${esc(s.title)} slides">
             ${s.items.map((c, i) => `
               <article class="card slide" aria-label="${i + 1} / ${s.items.length}">
                 <div class="slide-num">${String(i + 1).padStart(2, "0")}</div>
@@ -265,9 +268,9 @@
               </article>`).join("")}
           </div>
           <div class="slider-ctrl">
-            <button class="slider-btn prev" type="button" aria-label="이전">‹</button>
-            <div class="dots">${s.items.map((_, i) => `<button type="button" class="dot" aria-label="${i + 1}번 슬라이드"></button>`).join("")}</div>
-            <button class="slider-btn next" type="button" aria-label="다음">›</button>
+            <button class="slider-btn prev" type="button" aria-label="Previous">‹</button>
+            <div class="dots">${s.items.map((_, i) => `<button type="button" class="dot" aria-label="Slide ${i + 1}"></button>`).join("")}</div>
+            <button class="slider-btn next" type="button" aria-label="Next">›</button>
           </div>
         </div>
       </section>`,
@@ -276,11 +279,11 @@
       <section class="section" id="${esc(s.id)}">
         ${head(s, "Curriculum")}
         <div class="week-tools">
-          <span class="legend"><i class="lg done"></i>지난 수업 <i class="lg now"></i>다음 수업 <i class="lg hw"></i>과제 있음</span>
+          <span class="legend"><i class="lg done"></i>Past <i class="lg now"></i>Next class <i class="lg hw"></i>Assignment</span>
           <span class="week-tool-btns">
             <button class="btn small admin-only" type="button" data-week-add hidden>+ 주차 추가</button>
             <button class="btn ghost small admin-only" type="button" data-week-reset hidden>원래대로</button>
-            <button class="btn ghost small" type="button" id="toggleAllWeeks">모두 펼치기</button>
+            <button class="btn ghost small" type="button" id="toggleAllWeeks">Expand all</button>
           </span>
         </div>
         <div class="week-list">
@@ -290,13 +293,13 @@
             return `
             <details class="card week-item ${state}" id="week-${w.no}" ${w === nextWeek ? "open" : ""}>
               <summary>
-                <span class="week-no">${w.no}<small>주</small></span>
+                <span class="week-no">${w.no}<small>wk</small></span>
                 <span class="week-head">
-                  <span class="week-date">${esc(fmtDate(w.date))}${state === "now" ? ` <b class="chip now">다음 수업</b>` : ""}</span>
+                  <span class="week-date">${esc(fmtDate(w.date))}${state === "now" ? ` <b class="chip now">Next class</b>` : ""}</span>
                   <strong>${esc(w.title)}</strong>
                   ${w.summary ? `<span class="week-sum">${esc(w.summary)}</span>` : ""}
                 </span>
-                ${r ? `<span class="chip hw ${r.cls}" data-due-chip="${w.no}">과제 ${esc(r.dday)}</span>` : ""}
+                ${r ? `<span class="chip hw ${r.cls}" data-due-chip="${w.no}">Due ${esc(r.dday)}</span>` : ""}
                 <span class="chev" aria-hidden="true"></span>
               </summary>
               <div class="week-body">
@@ -306,26 +309,31 @@
                   <button class="btn ghost small" type="button" data-week-del="${w.no - 1}">삭제</button>
                 </div>
                 <dl class="week-meta">
-                  <div><dt>날짜</dt><dd>${esc(fmtDate(w.date))}</dd></div>
-                  <div><dt>시간</dt><dd>${esc(w.time)}</dd></div>
-                  <div><dt>수업 방식</dt><dd>${esc(w.place)}${joinLink(w)}</dd></div>
+                  <div><dt>Date</dt><dd>${esc(fmtDate(w.date))}</dd></div>
+                  <div><dt>Time</dt><dd>${esc(w.time)}</dd></div>
+                  <div><dt>Format</dt><dd>${esc(w.place)}${w.locked ? "" : joinLink(w)}</dd></div>
                 </dl>
+                ${w.locked ? `
+                <div class="week-locked">
+                  <p><b>This week's lesson materials are for approved students.</b><br>Log in with your approved student account to see the topics, videos, materials, and assignment details.</p>
+                  <a class="btn small" href="#${esc((C.student && C.student.id) || "student")}">Log in</a>
+                </div>` : `
                 <div class="week-cols">
                   <div>
-                    <h4>학습 내용</h4>
+                    <h4>Topics</h4>
                     ${w.contents && w.contents.length
                       ? `<ul class="contents">${w.contents.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>`
-                      : `<p class="muted">준비 중입니다.</p>`}
+                      : `<p class="muted">Coming soon.</p>`}
                   </div>
                   <div>
-                    <h4>참고 영상</h4>
+                    <h4>Videos</h4>
                     ${w.videos && w.videos.length
                       ? `<div class="videos">${w.videos.map((v) => {
                           const id = ytId(v.url);
                           // YouTube 주소: 썸네일을 누르면 그 자리에서 재생 / 그 밖의 주소: 새 창 링크
                           return id ? `
-                            <figure class="yt" data-yt="${id}" data-yt-title="${esc(v.title || "YouTube 영상")}">
-                              <button type="button" class="yt-play" aria-label="${esc(v.title || "영상")} 재생">
+                            <figure class="yt" data-yt="${id}" data-yt-title="${esc(v.title || "YouTube video")}">
+                              <button type="button" class="yt-play" aria-label="Play ${esc(v.title || "video")}">
                                 <img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy">
                                 <span class="yt-btn" aria-hidden="true"></span>
                               </button>
@@ -333,12 +341,12 @@
                             </figure>`
                             : `<a class="video-link" href="${esc(v.url)}" target="_blank" rel="noopener">${esc(v.title || v.url)} ↗</a>`;
                         }).join("")}</div>`
-                      : `<p class="muted">이번 주는 참고 영상이 없습니다.</p>`}
+                      : `<p class="muted">No videos this week.</p>`}
                   </div>
                 </div>
                 ${w.materials && w.materials.length ? `
                 <div class="materials">
-                  <h4>수업 자료</h4>
+                  <h4>Materials</h4>
                   <ul class="mat-list">${w.materials.map((m, mi) => {
                     const embed = driveEmbed(m.url);
                     return `
@@ -346,7 +354,7 @@
                       <div class="mat-row">
                         <span class="mat-kind">${esc(driveKind(m.url))}</span>
                         <a href="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.title || m.url)}</a>
-                        ${embed ? `<button type="button" class="link-btn mat-toggle" data-mat-embed="${esc(embed)}" aria-expanded="false" aria-controls="mat-${w.no}-${mi}">미리보기</button>` : ""}
+                        ${embed ? `<button type="button" class="link-btn mat-toggle" data-mat-embed="${esc(embed)}" aria-expanded="false" aria-controls="mat-${w.no}-${mi}">Preview</button>` : ""}
                       </div>
                       ${embed ? `<div class="mat-preview" id="mat-${w.no}-${mi}" hidden></div>` : ""}
                     </li>`;
@@ -355,20 +363,20 @@
                 ${w.assignment && r ? `
                 <div class="assignment ${r.cls}">
                   <div class="as-head">
-                    <span class="as-label">과제</span>
+                    <span class="as-label">Assignment</span>
                     <strong>${esc(w.assignment.title)}</strong>
                   </div>
                   <p>${esc(w.assignment.desc)}</p>
                   <div class="as-foot">
                     <div>
-                      <div class="as-due">마감 · ${esc(fmtDateTime(w.due))}</div>
+                      <div class="as-due">Due · ${esc(fmtDateTime(w.due))}</div>
                       <div class="countdown" data-due="${w.no}">${esc(r.dday)} · ${esc(r.text)}</div>
                     </div>
                     ${r.cls === "closed" && !(C.student && C.student.allowLate)
-                      ? `<span class="btn disabled" aria-disabled="true">제출 마감</span>`
+                      ? `<span class="btn disabled" aria-disabled="true">Closed</span>`
                       : submitButton(w)}
                   </div>
-                </div>` : ""}
+                </div>` : ""}`}
               </div>
             </details>`;
           }).join("")}
@@ -381,17 +389,17 @@
         <div class="cal-layout">
           <div class="card cal">
             <div class="cal-top">
-              <button class="slider-btn" type="button" id="calPrev" aria-label="이전 달">‹</button>
+              <button class="slider-btn" type="button" id="calPrev" aria-label="Previous month">‹</button>
               <h3 id="calTitle" aria-live="polite"></h3>
-              <button class="slider-btn" type="button" id="calNext" aria-label="다음 달">›</button>
+              <button class="slider-btn" type="button" id="calNext" aria-label="Next month">›</button>
             </div>
             <div class="cal-grid cal-dow">${DAYS.map((d) => `<span>${d}</span>`).join("")}</div>
             <div class="cal-grid" id="calDays"></div>
             <div class="cal-foot">
-              <span class="legend"><i class="lg now"></i>수업 <i class="lg hw"></i>과제 마감 <i class="lg off"></i>휴강 <i class="lg ev"></i>일정</span>
+              <span class="legend"><i class="lg now"></i>Class <i class="lg hw"></i>Due <i class="lg off"></i>No class <i class="lg ev"></i>Event</span>
               <span class="cal-btns">
                 <button class="btn small" type="button" id="calAdd" hidden>+ 일정 추가</button>
-                <button class="btn ghost small" type="button" id="calToday">오늘</button>
+                <button class="btn ghost small" type="button" id="calToday">Today</button>
               </span>
             </div>
           </div>
@@ -413,7 +421,7 @@
                 </div>
               </div>
               <p>${esc(t.text)}</p>
-              ${t.link ? `<a class="link" href="${esc(t.link)}" target="_blank" rel="noopener">사이트 바로가기 →</a>` : ""}
+              ${t.link ? `<a class="link" href="${esc(t.link)}" target="_blank" rel="noopener">Visit site →</a>` : ""}
             </article>`).join("")}
         </div>
       </section>`,
@@ -443,14 +451,14 @@
               <div class="num">${String(i + 1).padStart(2, "0")}</div>
               <div class="body">
                 <div class="meta">
-                  <span class="tag ${r.tag === "필수" ? "" : "sub"}">${esc(r.tag)}</span>
+                  <span class="tag ${/^(필수|required)$/i.test(r.tag) ? "" : "sub"}">${esc(r.tag)}</span>
                   <span>${esc(r.author)}</span>
                 </div>
                 <h3>${esc(r.title)}</h3>
                 <p>${esc(r.summary)}</p>
                 ${r.link
-                  ? `<a class="link" href="${esc(r.link)}" target="_blank" rel="noopener">자료 열기 →</a>`
-                  : `<span class="link disabled">링크 준비 중</span>`}
+                  ? `<a class="link" href="${esc(r.link)}" target="_blank" rel="noopener">Open →</a>`
+                  : `<span class="link disabled">Link coming soon</span>`}
               </div>
             </article>`).join("")}
         </div>
@@ -465,7 +473,7 @@
               <div class="q-num">Q${i + 1}</div>
               <div class="q-title">${esc(q.question)}</div>
               ${q.type === "short"
-                ? `<input class="short-input" type="text" placeholder="답을 입력하세요" aria-label="Q${i + 1} 답 입력">`
+                ? `<input class="short-input" type="text" placeholder="Type your answer" aria-label="Q${i + 1} answer">`
                 : `<div class="options">
                     ${q.options.map((o, j) => `
                       <label class="option">
@@ -474,15 +482,15 @@
                       </label>`).join("")}
                    </div>`}
               <div class="q-actions">
-                <button class="btn check" type="button">정답 확인</button>
-                <button class="btn ghost reset" type="button">다시 풀기</button>
+                <button class="btn check" type="button">Check answer</button>
+                <button class="btn ghost reset" type="button">Try again</button>
               </div>
               <div class="feedback" role="status"></div>
             </article>`).join("")}
         </div>
         <div class="card score">
-          <span>맞힌 문제 <strong id="scoreText">0 / ${s.questions.length}</strong></span>
-          <button class="btn ghost" id="resetAll" type="button">전체 다시 풀기</button>
+          <span>Correct <strong id="scoreText">0 / ${s.questions.length}</strong></span>
+          <button class="btn ghost" id="resetAll" type="button">Reset all</button>
         </div>
       </section>`,
 
@@ -518,17 +526,17 @@
           </div>` : ""}
 
           ${s.phases && s.phases.length ? `
-          <h3 class="ig-h">15주 학습 여정</h3>
-          <div class="ig-strip" role="img" aria-label="${esc(s.phases.map((p) => `${p.from}~${p.to}주 ${p.title}`).join(", "))}">
+          <h3 class="ig-h">The 15-Week Journey</h3>
+          <div class="ig-strip" role="img" aria-label="${esc(s.phases.map((p) => `Weeks ${p.from}–${p.to} ${p.title}`).join(", "))}">
             ${Array.from({ length: total }, (_, i) => {
               const n = i + 1, p = phaseOf(n), now = nextWeek && nextWeek.no === n;
-              return `<span class="ig-cell ${p > -1 ? tone(p) : ""} ${now ? "now" : ""}" title="${n}주차${now ? " · 다음 수업" : ""}">${n}${now ? `<i>NOW</i>` : ""}</span>`;
+              return `<span class="ig-cell ${p > -1 ? tone(p) : ""} ${now ? "now" : ""}" title="Week ${n}${now ? " · next class" : ""}">${n}${now ? `<i>NOW</i>` : ""}</span>`;
             }).join("")}
           </div>
           <ol class="ig-phases">
             ${s.phases.map((p, i) => `
               <li class="ig-phase">
-                <div class="ig-band ${tone(i)}"><span>${esc(p.icon)}</span> STEP ${i + 1} · ${esc(p.from)}~${esc(p.to)}주</div>
+                <div class="ig-band ${tone(i)}"><span>${esc(p.icon)}</span> STEP ${i + 1} · WEEKS ${esc(p.from)}–${esc(p.to)}</div>
                 <h4>${esc(p.title)}</h4>
                 <ul>${(p.items || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
               </li>`).join("")}
@@ -537,20 +545,20 @@
           <div class="ig-split">
             ${s.session && s.session.length ? `
             <div class="ig-box">
-              <h3 class="ig-h">${esc(s.sessionTitle || "수업 구성")}</h3>
-              <div class="ig-bar" role="img" aria-label="${esc(s.session.map((x) => `${x.label} ${x.minutes}분`).join(", "))}">
-                ${s.session.map((x, i) => `<span class="ig-seg ${tone(i)}" style="flex:${Number(x.minutes) || 0}">${esc(x.minutes)}분</span>`).join("")}
+              <h3 class="ig-h">${esc(s.sessionTitle || "Class structure")}</h3>
+              <div class="ig-bar" role="img" aria-label="${esc(s.session.map((x) => `${x.label} ${x.minutes} min`).join(", "))}">
+                ${s.session.map((x, i) => `<span class="ig-seg ${tone(i)}" style="flex:${Number(x.minutes) || 0}">${esc(x.minutes)} min</span>`).join("")}
               </div>
               <ul class="ig-legend">
-                ${s.session.map((x, i) => `<li><i class="${tone(i)}"></i>${esc(x.label)} <b>${esc(x.minutes)}분</b> <small>${Math.round(((Number(x.minutes) || 0) / sumMin) * 100)}%</small></li>`).join("")}
+                ${s.session.map((x, i) => `<li><i class="${tone(i)}"></i>${esc(x.label)} <b>${esc(x.minutes)} min</b> <small>${Math.round(((Number(x.minutes) || 0) / sumMin) * 100)}%</small></li>`).join("")}
               </ul>
             </div>` : ""}
             ${s.assessment && s.assessment.length ? `
             <div class="ig-box ig-assess">
-              <h3 class="ig-h">${esc(s.assessmentTitle || "평가")}</h3>
+              <h3 class="ig-h">${esc(s.assessmentTitle || "Grading")}</h3>
               <div class="ig-donut-wrap">
                 <div class="ig-donut" style="background:conic-gradient(${stops})" role="img" aria-label="${esc(s.assessment.map((a) => `${a.label} ${a.percent}%`).join(", "))}">
-                  <span><b>100%</b>평가</span>
+                  <span><b>100%</b>total</span>
                 </div>
                 <ul class="ig-legend">
                   ${s.assessment.map((a, i) => `<li><i class="${tone(i)}"></i>${esc(a.label)} <b>${esc(a.percent)}%</b></li>`).join("")}
@@ -561,7 +569,7 @@
 
           ${s.outcomes && s.outcomes.length ? `
           <div class="ig-outcomes">
-            <h3 class="ig-h">${esc(s.outcomesTitle || "학습 성과")}</h3>
+            <h3 class="ig-h">${esc(s.outcomesTitle || "Outcomes")}</h3>
             <ol>${s.outcomes.map((o) => `<li>${esc(o)}</li>`).join("")}</ol>
           </div>` : ""}
         </div>
@@ -645,7 +653,7 @@
   const allBtn = $("#toggleAllWeeks");
   if (allBtn) {
     const items = $$(".week-item");
-    const sync = () => { allBtn.textContent = items.every((d) => d.open) ? "모두 접기" : "모두 펼치기"; };
+    const sync = () => { allBtn.textContent = items.every((d) => d.open) ? "Collapse all" : "Expand all"; };
     allBtn.addEventListener("click", () => {
       const open = !items.every((d) => d.open);
       items.forEach((d) => (d.open = open));
@@ -662,7 +670,7 @@
       const fig = play.closest(".yt");
       const frame = document.createElement("iframe");
       frame.src = `https://www.youtube-nocookie.com/embed/${fig.dataset.yt}?autoplay=1&rel=0`;
-      frame.title = fig.dataset.ytTitle || "YouTube 영상";
+      frame.title = fig.dataset.ytTitle || "YouTube video";
       frame.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
       frame.allowFullscreen = true;
       frame.referrerPolicy = "strict-origin-when-cross-origin";
@@ -678,14 +686,14 @@
       if (open && !box.firstChild) {
         const f = document.createElement("iframe");
         f.src = mt.dataset.matEmbed;
-        f.title = "수업 자료 미리보기";
+        f.title = "Material preview";
         f.loading = "lazy";
         f.allow = "autoplay";
         box.appendChild(f);
       }
       box.hidden = !open;
       mt.setAttribute("aria-expanded", String(open));
-      mt.textContent = open ? "미리보기 닫기" : "미리보기";
+      mt.textContent = open ? "Close preview" : "Preview";
     }
   });
   const openWeek = (no) => {
@@ -705,7 +713,7 @@
         if (box) box.classList.remove("open", "urgent", "closed"), box.classList.add(r.cls);
       });
       $$(`[data-due-chip="${w.no}"]`).forEach((el) => {
-        el.textContent = `과제 ${r.dday}`;
+        el.textContent = `Due ${r.dday}`;
         el.className = `chip hw ${r.cls}`;
       });
     });
@@ -733,7 +741,7 @@
 
     const drawMonth = () => {
       const y = view.getFullYear(), m = view.getMonth();
-      $("#calTitle").textContent = `${y}년 ${m + 1}월`;
+      $("#calTitle").textContent = `${new Date(y, m, 1).toLocaleString("en-US", { month: "long" })} ${y}`;
       const start = new Date(y, m, 1 - new Date(y, m, 1).getDay());
       let html = "";
       for (let i = 0; i < 42; i++) {
@@ -748,13 +756,13 @@
         if (ev && ev.classes.length) cls.push("has-class");
         if (ev && ev.holiday) cls.push("off");
         const marks = ev ? [
-          ...ev.classes.map((w) => `<span class="mk class">${w.no}주차</span>`),
-          ...ev.dues.map(() => `<span class="mk due">과제 마감</span>`),
-          ev.holiday ? `<span class="mk off">휴강</span>` : "",
+          ...ev.classes.map((w) => `<span class="mk class">Wk ${w.no}</span>`),
+          ...ev.dues.map(() => `<span class="mk due">Due</span>`),
+          ev.holiday ? `<span class="mk off">No class</span>` : "",
           ...ev.custom.map((c) => `<span class="mk ev" title="${esc(c.title)}">${esc(c.title)}</span>`)
         ].join("") : "";
-        const label = `${d.getMonth() + 1}월 ${d.getDate()}일` +
-          (ev ? ev.classes.map((w) => `, ${w.no}주차 수업`).join("") + (ev.dues.length ? ", 과제 마감" : "") + (ev.holiday ? `, ${ev.holiday}` : "") + ev.custom.map((c) => `, ${c.title}`).join("") : "");
+        const label = `${MONTHS[d.getMonth()]} ${d.getDate()}` +
+          (ev ? ev.classes.map((w) => `, Week ${w.no} class`).join("") + (ev.dues.length ? ", assignment due" : "") + (ev.holiday ? `, ${ev.holiday}` : "") + ev.custom.map((c) => `, ${c.title}`).join("") : "");
         html += `<button type="button" class="${cls.join(" ")}" data-key="${k}" aria-label="${esc(label)}" aria-pressed="${k === selected}">
                    <span class="dn">${d.getDate()}</span>${marks}
                  </button>`;
@@ -766,15 +774,15 @@
       const d = parseDate(selected), ev = events[selected];
       let html = `<div class="dp-date">${esc(fmtDate(d))}</div>`;
       if (!ev || (!ev.classes.length && !ev.dues.length && !ev.holiday && !ev.custom.length)) {
-        html += `<p class="muted dp-empty">이날은 수업이 없습니다.</p>`;
-        if (nextWeek) html += `<button class="btn ghost small" type="button" data-goto="${keyOf(nextWeek.date)}">다음 수업 보기 →</button>`;
+        html += `<p class="muted dp-empty">No class on this day.</p>`;
+        if (nextWeek) html += `<button class="btn ghost small" type="button" data-goto="${keyOf(nextWeek.date)}">See next class →</button>`;
       } else {
-        if (ev.holiday) html += `<div class="dp-item off"><span class="chip off">휴강</span> ${esc(ev.holiday)}</div>`;
+        if (ev.holiday) html += `<div class="dp-item off"><span class="chip off">No class</span> ${esc(ev.holiday)}</div>`;
         // 관리자가 추가한 일정 (수정·삭제 버튼은 관리자에게만)
         ev.custom.forEach((c) => {
           html += `
             <div class="dp-item ev">
-              <span class="chip ev">일정${c.time ? " " + esc(c.time) : ""}</span>
+              <span class="chip ev">Event${c.time ? " " + esc(c.time) : ""}</span>
               <h4>${esc(c.title)}</h4>
               ${c.body ? `<p class="dp-body">${esc(c.body).replace(/\n/g, "<br>")}</p>` : ""}
               ${window.SITE.adminToken ? `<div class="dp-admin">
@@ -787,22 +795,22 @@
         ev.classes.forEach((w) => {
           html += `
             <div class="dp-item">
-              <span class="chip now">${w.no}주차 수업</span>
+              <span class="chip now">Week ${w.no} class</span>
               <h4>${esc(w.title)}</h4>
               <div class="dp-meta">${esc(w.time)}<br>${esc(w.place)}${joinLink(w)}</div>
               ${w.contents && w.contents.length ? `<ul class="contents">${w.contents.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}
-              ${w.assignment ? `<div class="dp-hw">과제 · ${esc(w.assignment.title)}</div>` : ""}
-              <button class="btn small" type="button" data-week="${w.no}">주차 상세 보기 →</button>
+              ${w.assignment ? `<div class="dp-hw">Assignment · ${esc(w.assignment.title)}</div>` : ""}
+              <button class="btn small" type="button" data-week="${w.no}">View week →</button>
             </div>`;
         });
         ev.dues.forEach((w) => {
           const r = remain(w.due);
           html += `
             <div class="dp-item due ${r.cls}">
-              <span class="chip hw ${r.cls}">과제 마감 ${esc(pad(w.due.getHours()))}:${esc(pad(w.due.getMinutes()))}</span>
+              <span class="chip hw ${r.cls}">Due ${esc(pad(w.due.getHours()))}:${esc(pad(w.due.getMinutes()))}</span>
               <h4>${esc(w.assignment.title)}</h4>
               <div class="countdown" data-due="${w.no}">${esc(r.dday)} · ${esc(r.text)}</div>
-              <button class="btn ghost small" type="button" data-week="${w.no}">${w.no}주차 과제 보기 →</button>
+              <button class="btn ghost small" type="button" data-week="${w.no}">View Week ${w.no} assignment →</button>
             </div>`;
         });
       }
@@ -883,11 +891,11 @@
         let ok;
         if (q.type === "short") {
           const v = $(".short-input", card).value;
-          if (!v.trim()) return show(false, "답을 입력해 주세요.");
+          if (!v.trim()) return show(false, "Please type an answer.");
           ok = [].concat(q.answer).some((a) => norm(a) === norm(v));
         } else {
           const picked = $("input:checked", card);
-          if (!picked) return show(false, "보기를 하나 선택해 주세요.");
+          if (!picked) return show(false, "Please choose an option.");
           ok = Number(picked.value) === q.answer;
           $$(".option", card).forEach((el, j) => {
             el.classList.toggle("correct", j === q.answer);
@@ -896,7 +904,7 @@
         }
         ok ? solved.add(i) : solved.delete(i);
         updateScore();
-        show(ok, (ok ? "정답입니다! " : "아쉬워요. ") + (q.explain || ""));
+        show(ok, (ok ? "Correct! " : "Not quite. ") + (q.explain || ""));
       });
       $(".reset", card).addEventListener("click", () => resetCard(card));
     });

@@ -45,6 +45,13 @@ const classDates = (weeks) => {
   });
 };
 const CONFIG_WEEKS = (CFG.curriculum && CFG.curriculum.weeks) || [];
+// 승인 전 방문자에게 보내는 주차 정보: 제목 · 요약 · 날짜 · 과제 제목/마감만
+const lockWeek = (w) => {
+  const o = { title: w.title || "", summary: w.summary || "", locked: true };
+  ["date", "time", "place"].forEach((k) => { if (w[k]) o[k] = w[k]; });
+  if (w.assignment) o.assignment = { title: w.assignment.title || "", due: w.assignment.due || "" };
+  return o;
+};
 // 관리자가 사이트에서 고친 주차별 강의 (없으면 null → config.js 그대로)
 const savedWeeks = async () => {
   if (!dbReady) return null;
@@ -85,7 +92,13 @@ CREATE TABLE IF NOT EXISTS submissions (id serial PRIMARY KEY, at timestamptz NO
   week int NOT NULL, file_name text NOT NULL, size int NOT NULL DEFAULT 0, late boolean NOT NULL DEFAULT false, file_id uuid);
 CREATE TABLE IF NOT EXISTS events (id text PRIMARY KEY, date text NOT NULL, time text NOT NULL DEFAULT '', title text NOT NULL,
   body text NOT NULL DEFAULT '', popup boolean NOT NULL DEFAULT false, notice boolean NOT NULL DEFAULT false);
+-- v1.1: 수강생 승인 상태 (approved / pending) 와 등록 시각
+ALTER TABLE roster ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'approved';
+ALTER TABLE roster ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
 `;
+// 4자리 PIN (신청서에 PIN 이 없으면 자동 생성)
+const randomPin = () => String(crypto.randomInt(1000, 10000));
+const validPin = (p) => (/^\d{4}$/.test(String(p || "").trim()) ? String(p).trim() : "");
 
 let SECRET = process.env.SECRET || "";
 const initDb = async () => {
@@ -101,6 +114,18 @@ const initDb = async () => {
           await pool.query("INSERT INTO settings (key, value) VALUES ('secret', $1) ON CONFLICT (key) DO NOTHING", [SECRET]);
           SECRET = (await pool.query("SELECT value FROM settings WHERE key = 'secret'")).rows[0].value;
         }
+      }
+      // v1.1 이전에 신청했지만 명단에 없는 학생을 '승인 대기'로 한 번만 옮김
+      const done = await pool.query("SELECT 1 FROM settings WHERE key = 'roster_backfill_v11'");
+      if (!done.rows.length) {
+        const apps = await pool.query("SELECT sid, data, at FROM applications WHERE sid IS NOT NULL AND sid <> '' ORDER BY at");
+        for (const a of apps.rows) {
+          await pool.query(`INSERT INTO roster (sid, name, pin, status, created_at) VALUES ($1, $2, $3, 'pending', $4)
+                            ON CONFLICT (sid) DO NOTHING`,
+            [a.sid, String((a.data && a.data.name) || ""), validPin(a.data && a.data.pin) || randomPin(), a.at]);
+        }
+        await pool.query("INSERT INTO settings (key, value) VALUES ('roster_backfill_v11', $1) ON CONFLICT (key) DO NOTHING", [String(apps.rows.length)]);
+        console.log(`[db] roster backfill: ${apps.rows.length} application(s) checked`);
       }
       dbReady = true;
       dbError = "";
@@ -130,11 +155,15 @@ const same = (a, b) => {
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 };
 const fail = (msg) => { const e = new Error(msg); e.expose = true; throw e; };
-const requireAdmin = (req) => { if (!same(req.adminToken, token("__admin__"))) fail("관리자 로그인이 필요합니다."); };
+const isAdmin = (req) => !!req.adminToken && same(req.adminToken, token("__admin__"));
+const requireAdmin = (req) => { if (!isAdmin(req)) fail("관리자 로그인이 필요합니다."); };
+const PENDING_MSG = "Your enrollment is waiting for instructor approval. You can log in once it is approved.";
+// 학생 확인: 토큰이 맞고, 명단에 있고, 승인된 학생만
 const requireStudent = async (req) => {
-  if (!req.sid || !same(req.token, token(req.sid))) fail("로그인이 필요합니다. 다시 로그인해 주세요.");
-  const r = await q("SELECT sid, name FROM roster WHERE sid = $1", [String(req.sid).trim()]);
-  if (!r.rows.length) fail("명단에 없는 학번입니다. 다시 로그인해 주세요.");
+  if (!req.sid || !same(req.token, token(req.sid))) fail("Please log in again.");
+  const r = await q("SELECT sid, name, status FROM roster WHERE sid = $1", [String(req.sid).trim()]);
+  if (!r.rows.length) fail("This student ID is not on the class list. Please log in again.");
+  if (r.rows[0].status !== "approved") fail(PENDING_MSG);
   return r.rows[0];
 };
 const iso = (v) => (v instanceof Date ? v.toISOString() : String(v || ""));
@@ -158,8 +187,8 @@ const ACTIONS = {
   },
   async vote(req) {
     const n = Number(req.n) || 1, opt = Number(req.option), pid = String(req.pid || "");
-    if (!(opt >= 0 && opt < n) || !req.voterId) fail("올바르지 않은 투표입니다.");
-    if ((await q("SELECT 1 FROM polls WHERE pid = $1", [pid])).rows.length) fail("지금은 참여할 수 없는 설문입니다.");
+    if (!(opt >= 0 && opt < n) || !req.voterId) fail("Invalid vote.");
+    if ((await q("SELECT 1 FROM polls WHERE pid = $1", [pid])).rows.length) fail("This poll is closed.");
     await q(`INSERT INTO votes (pid, voter, option) VALUES ($1, $2, $3)
              ON CONFLICT (pid, voter) DO UPDATE SET option = EXCLUDED.option, at = now()`, [pid, String(req.voterId), opt]);
     return ACTIONS.getVotes(req);
@@ -169,19 +198,33 @@ const ACTIONS = {
   async apply(req) {
     const d = req.data && typeof req.data === "object" ? req.data : {};
     const sid = d.sid ? String(d.sid).trim() : null;
-    if (sid && (await q("SELECT 1 FROM applications WHERE sid = $1", [sid])).rows.length) fail("이미 이 학번으로 신청서를 제출했습니다.");
-    await q("INSERT INTO applications (sid, data) VALUES ($1, $2)", [sid, JSON.stringify(d)]);
+    if (sid && (await q("SELECT 1 FROM applications WHERE sid = $1", [sid])).rows.length) fail("An application has already been submitted with this student ID.");
+    await tx(async (c) => {
+      await c.query("INSERT INTO applications (sid, data) VALUES ($1, $2)", [sid, JSON.stringify(d)]);
+      // 신청하면 수강생 명단에 '승인 대기'로 자동 등록 (이미 명단에 있으면 그대로)
+      if (sid) {
+        await c.query(`INSERT INTO roster (sid, name, pin, status) VALUES ($1, $2, $3, 'pending') ON CONFLICT (sid) DO NOTHING`,
+          [sid, String(d.name || "").trim(), validPin(d.pin) || randomPin()]);
+      }
+    });
     return {};
   },
 
   /* 로그인 · 내 기록 */
   async login(req) {
-    const r = await q("SELECT sid, name, pin FROM roster WHERE sid = $1", [String(req.sid || "").trim()]);
+    const r = await q("SELECT sid, name, pin, status FROM roster WHERE sid = $1", [String(req.sid || "").trim()]);
     const s = r.rows[0];
     if (!s || s.name.trim() !== String(req.name || "").trim() || s.pin.trim() !== String(req.pin || "").trim()) {
-      fail("학번, 이름 또는 비밀번호가 맞지 않습니다.");
+      fail("Your student ID, name, or PIN is incorrect.");
     }
+    if (s.status !== "approved") fail(PENDING_MSG);
     return { sid: s.sid, name: s.name, token: token(s.sid) };
+  },
+
+  /* 주차별 학습 내용 전체 — 관리자 또는 승인된 수강생만 */
+  async getWeeks(req) {
+    if (!isAdmin(req)) await requireStudent(req);
+    return { weeks: (await savedWeeks()) || CONFIG_WEEKS };
   },
   async status(req) {
     const me = await requireStudent(req);
@@ -200,19 +243,19 @@ const ACTIONS = {
     const me = await requireStudent(req);
     const t = todaySeoul(), week = Number(req.week);
     const dates = classDates((await savedWeeks()) || CONFIG_WEEKS);
-    if (req.date !== t || (dates.length && dates[week - 1] !== t)) fail("오늘은 출석 체크를 할 수 있는 수업일이 아닙니다.");
+    if (req.date !== t || (dates.length && dates[week - 1] !== t)) fail("Check-in is only open on class days.");
     const r = await q(`INSERT INTO attendance (sid, week, name, date) VALUES ($1, $2, $3, $4)
                        ON CONFLICT (sid, week) DO NOTHING RETURNING at`, [me.sid, week, me.name, t]);
-    if (!r.rows.length) fail("이미 출석했습니다.");
+    if (!r.rows.length) fail("You have already checked in.");
     return { at: iso(r.rows[0].at) };
   },
 
   /* 과제 파일 제출 → files 테이블에 파일, submissions 에 기록 */
   async submit(req) {
     const me = await requireStudent(req);
-    if (!req.data || !req.fileName) fail("파일이 없습니다.");
+    if (!req.data || !req.fileName) fail("No file was received.");
     const bytes = Buffer.from(String(req.data), "base64");
-    if (bytes.length > MAX_FILE_MB * 1024 * 1024) fail(`파일이 너무 큽니다 (${MAX_FILE_MB}MB 이하).`);
+    if (bytes.length > MAX_FILE_MB * 1024 * 1024) fail(`The file is too large (${MAX_FILE_MB}MB max).`);
     const id = crypto.randomUUID();
     await tx(async (c) => {
       await c.query("INSERT INTO files (id, name, mime, size, data) VALUES ($1, $2, $3, $4, $5)",
@@ -248,13 +291,13 @@ const ACTIONS = {
   async adminData(req) {
     requireAdmin(req);
     const [ro, ap, at, sb] = await Promise.all([
-      q("SELECT sid, name, pin FROM roster ORDER BY sid"),
+      q("SELECT sid, name, pin, status, created_at FROM roster ORDER BY created_at, sid"),
       q("SELECT at, data FROM applications ORDER BY at"),
       q("SELECT sid, name, week, at FROM attendance ORDER BY at"),
       q("SELECT at, sid, name, week, file_name, size, late, file_id FROM submissions ORDER BY at")
     ]);
     return {
-      roster: ro.rows,
+      roster: ro.rows.map((r) => ({ sid: r.sid, name: r.name, pin: r.pin, status: r.status, createdAt: iso(r.created_at) })),
       applications: ap.rows.map((r) => Object.assign({}, r.data, { at: iso(r.at) })),
       attendance: at.rows.map((r) => ({ at: iso(r.at), sid: r.sid, name: r.name, week: r.week })),
       submissions: sb.rows.map((r) => ({ at: iso(r.at), sid: r.sid, name: r.name, week: r.week, fileName: r.file_name, size: r.size, late: r.late, url: fileUrl(r.file_id) }))
@@ -263,13 +306,47 @@ const ACTIONS = {
   async saveRoster(req) {
     requireAdmin(req);
     const list = (req.roster || []).filter((r) => r && r.sid && r.name);
+    const okStatus = (s) => (s === "approved" || s === "pending" ? s : null);
     await tx(async (c) => {
-      await c.query("DELETE FROM roster");
+      // 목록에서 빠진 학생은 삭제, 나머지는 추가·수정 (승인 상태는 값이 없으면 기존 상태 유지)
+      await c.query("DELETE FROM roster WHERE NOT (sid = ANY($1::text[]))", [list.map((r) => String(r.sid).trim())]);
       for (const r of list) {
-        await c.query("INSERT INTO roster (sid, name, pin) VALUES ($1, $2, $3) ON CONFLICT (sid) DO UPDATE SET name = EXCLUDED.name, pin = EXCLUDED.pin",
-          [String(r.sid).trim(), String(r.name).trim(), String(r.pin == null ? "" : r.pin).trim()]);
+        await c.query(`INSERT INTO roster (sid, name, pin, status) VALUES ($1, $2, $3, COALESCE($4, 'approved'))
+                       ON CONFLICT (sid) DO UPDATE SET name = EXCLUDED.name, pin = EXCLUDED.pin, status = COALESCE($4, roster.status)`,
+          [String(r.sid).trim(), String(r.name).trim(), String(r.pin == null ? "" : r.pin).trim(), okStatus(r.status)]);
       }
     });
+    return {};
+  },
+
+  /* 강의 관리: 수강생 한 명 추가 · 승인 · PIN 변경 · 삭제 */
+  async addStudent(req) {
+    requireAdmin(req);
+    const sid = String(req.sid || "").trim(), name = String(req.name || "").trim();
+    if (!/^\d+$/.test(sid) || !name) fail("학번(숫자)과 이름을 입력해 주세요.");
+    const pin = validPin(req.pin) || randomPin();
+    const r = await q(`INSERT INTO roster (sid, name, pin, status) VALUES ($1, $2, $3, 'approved') ON CONFLICT (sid) DO NOTHING RETURNING sid`, [sid, name, pin]);
+    if (!r.rows.length) fail(`학번 ${sid} 은(는) 이미 명단에 있습니다.`);
+    return { pin };
+  },
+  async setStudentStatus(req) {
+    requireAdmin(req);
+    const status = req.status === "approved" ? "approved" : "pending";
+    const r = await q("UPDATE roster SET status = $2 WHERE sid = $1 RETURNING sid", [String(req.sid || "").trim(), status]);
+    if (!r.rows.length) fail("명단에 없는 학번입니다.");
+    return { status };
+  },
+  async setStudentPin(req) {
+    requireAdmin(req);
+    const pin = validPin(req.pin);
+    if (!pin) fail("PIN 은 숫자 4자리로 입력해 주세요.");
+    const r = await q("UPDATE roster SET pin = $2 WHERE sid = $1 RETURNING sid", [String(req.sid || "").trim(), pin]);
+    if (!r.rows.length) fail("명단에 없는 학번입니다.");
+    return { pin };
+  },
+  async deleteStudent(req) {
+    requireAdmin(req);
+    await q("DELETE FROM roster WHERE sid = $1", [String(req.sid || "").trim()]);
     return {};
   },
   async saveNotices(req) {
@@ -308,6 +385,7 @@ const ACTIONS = {
       return {};
     }
     if (!Array.isArray(req.weeks)) fail("주차 정보가 올바르지 않습니다.");
+    if (req.weeks.some((w) => w && w.locked)) fail("주차 내용을 아직 불러오지 못했습니다. 새로고침한 뒤 다시 시도해 주세요.");
     const str = (v) => String(v == null ? "" : v).slice(0, 2000);
     const links = (arr) => (Array.isArray(arr) ? arr : [])
       .filter((x) => x && /^https?:\/\//i.test(String(x.url || "")))
@@ -430,14 +508,16 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === "/api/health") return sendJson(res, 200, { ok: true, db: dbReady, error: dbReady ? "" : dbError });
     if (url.pathname.startsWith("/api/file/")) return await handleFile(res, url.pathname.slice("/api/file/".length));
     if (req.method !== "GET" && req.method !== "HEAD") { res.writeHead(405); return res.end(); }
-    // config.js 뒤에 관리자가 고친 주차별 강의를 덧붙여 보냄 → 모든 방문자에게 같은 내용
+    // config.js: 주차별 학습 내용(학습 내용·영상·자료·과제 설명)은 빼고 보냄
+    //  → 승인된 수강생·관리자만 getWeeks 로 전체 내용을 받음
     if (url.pathname === "/config.js") {
-      const base = await fs.promises.readFile(path.join(ROOT, "config.js"), "utf8");
-      let extra = "";
-      try { const w = await savedWeeks(); if (w) extra = `\nwindow.SITE_CURRICULUM = ${JSON.stringify(w).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029")};\n`; }
-      catch (e) { console.error("[config] curriculum:", e.message); }
+      let weeks = CONFIG_WEEKS;
+      try { weeks = (await savedWeeks()) || CONFIG_WEEKS; } catch (e) { console.error("[config] curriculum:", e.message); }
+      const cfg = Object.assign({}, CFG);
+      if (CFG.curriculum) cfg.curriculum = Object.assign({}, CFG.curriculum, { weeks: weeks.map(lockWeek) });
+      const json = JSON.stringify(cfg, null, 1).split(String.fromCharCode(0x2028)).join("\\u2028").split(String.fromCharCode(0x2029)).join("\\u2029");
       res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache" });
-      return res.end(base + extra);
+      return res.end(`/* Site settings — weekly lesson details are only sent to approved students. */\nwindow.SITE_CONFIG = ${json};\n`);
     }
     serveStatic(res, url.pathname);
   } catch (e) {

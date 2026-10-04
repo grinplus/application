@@ -42,7 +42,7 @@
       return { ok: true, counts, mine: voterId in v ? v[voterId] : null, hidden };
     },
     vote({ voterId, option, pid, n }) {
-      if (store.get("pollHistory", []).some((h) => h.pid === pid)) throw new Error("지금은 참여할 수 없는 설문입니다.");
+      if (store.get("pollHistory", []).some((h) => h.pid === pid)) throw new Error("This poll is closed.");
       const v = store.get("votes_" + pid, {});
       v[voterId] = option;
       store.set("votes_" + pid, v);
@@ -50,9 +50,15 @@
     },
     apply({ data }) {
       const list = store.get("applications", []);
-      if (list.some((a) => a.sid && a.sid === data.sid)) throw new Error("이미 이 학번으로 신청서를 제출했습니다.");
+      if (list.some((a) => a.sid && a.sid === data.sid)) throw new Error("An application has already been submitted with this student ID.");
       list.push(Object.assign({ at: new Date().toISOString() }, data));
       store.set("applications", list);
+      // 신청하면 명단에 '승인 대기'로 자동 등록
+      const roster = store.get("roster", []);
+      if (data.sid && !roster.some((r) => String(r.sid) === String(data.sid))) {
+        roster.push({ sid: String(data.sid), name: data.name || "", pin: /^\d{4}$/.test(data.pin || "") ? data.pin : String(1000 + Math.floor(Math.random() * 9000)), status: "pending", createdAt: new Date().toISOString() });
+        store.set("roster", roster);
+      }
       return { ok: true };
     },
     login({ sid, name, pin }) {
@@ -61,8 +67,9 @@
       if (roster.length) {
         const r = roster.find((x) => String(x.sid).trim() === String(sid).trim());
         if (!r || String(r.name).trim() !== String(name).trim() || String(r.pin).trim() !== String(pin).trim()) {
-          throw new Error("학번, 이름 또는 비밀번호가 맞지 않습니다.");
+          throw new Error("Your student ID, name, or PIN is incorrect.");
         }
+        if ((r.status || "approved") !== "approved") throw new Error("Your enrollment is waiting for instructor approval. You can log in once it is approved.");
       }
       const names = store.get("names", {});
       names[sid] = name;
@@ -75,7 +82,36 @@
     /* ----- 관리자용 (체험 모드: 이 브라우저에 쌓인 데이터를 모아서 보여 줌) ----- */
     adminLogin() { return { ok: true, adminToken: "demo" }; },
     saveNotices({ notices }) { store.set("notices", notices); return { ok: true }; },
-    saveRoster({ roster }) { store.set("roster", roster); return { ok: true }; },
+    saveRoster({ roster }) {
+      const old = store.get("roster", []);
+      store.set("roster", roster.map((r) => {
+        const o = old.find((x) => String(x.sid) === String(r.sid)) || {};
+        return Object.assign({ createdAt: o.createdAt || new Date().toISOString() }, r, { status: r.status || o.status || "approved" });
+      }));
+      return { ok: true };
+    },
+    addStudent({ sid, name, pin }) {
+      const roster = store.get("roster", []);
+      if (!/^\d+$/.test(String(sid || "")) || !name) throw new Error("학번(숫자)과 이름을 입력해 주세요.");
+      if (roster.some((r) => String(r.sid) === String(sid))) throw new Error(`학번 ${sid} 은(는) 이미 명단에 있습니다.`);
+      const p = /^\d{4}$/.test(pin || "") ? pin : String(1000 + Math.floor(Math.random() * 9000));
+      roster.push({ sid: String(sid), name, pin: p, status: "approved", createdAt: new Date().toISOString() });
+      store.set("roster", roster);
+      return { ok: true, pin: p };
+    },
+    setStudentStatus({ sid, status }) {
+      store.set("roster", store.get("roster", []).map((r) => (String(r.sid) === String(sid) ? Object.assign({}, r, { status: status === "approved" ? "approved" : "pending" }) : r)));
+      return { ok: true };
+    },
+    setStudentPin({ sid, pin }) {
+      if (!/^\d{4}$/.test(pin || "")) throw new Error("PIN 은 숫자 4자리로 입력해 주세요.");
+      store.set("roster", store.get("roster", []).map((r) => (String(r.sid) === String(sid) ? Object.assign({}, r, { pin }) : r)));
+      return { ok: true, pin };
+    },
+    deleteStudent({ sid }) {
+      store.set("roster", store.get("roster", []).filter((r) => String(r.sid) !== String(sid)));
+      return { ok: true };
+    },
     hidePoll({ poll }) {
       const list = store.get("pollHistory", []);
       if (!list.some((h) => h.pid === poll.pid)) {
@@ -115,9 +151,9 @@
       return { ok: true, attendance: store.get("att_" + sid, {}), submissions: store.get("subs_" + sid, []) };
     },
     attend({ sid, week, date }) {
-      if (date !== keyOf(today())) throw new Error("오늘은 해당 주차 수업일이 아닙니다.");
+      if (date !== keyOf(today())) throw new Error("Today is not the class day for this week.");
       const att = store.get("att_" + sid, {});
-      if (att[week]) throw new Error("이미 출석했습니다.");
+      if (att[week]) throw new Error("You have already checked in.");
       att[week] = new Date().toISOString();
       store.set("att_" + sid, att);
       return { ok: true, at: att[week] };
@@ -137,15 +173,43 @@
       body: JSON.stringify(Object.assign({ action }, data))
     })
       .then((r) => r.json())
-      .catch(() => { throw new Error("서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요."); })
-      .then((j) => { if (!j.ok) throw new Error(j.error || "요청을 처리하지 못했습니다."); return j; });
+      .catch(() => { throw new Error("Could not connect to the server. Please try again in a moment."); })
+      .then((j) => { if (!j.ok) throw new Error(j.error || "Your request could not be processed."); return j; });
   };
 
   // 관리자 화면(admin.js)에서 함께 쓰기
   Object.assign(X, { api, store, LIVE });
 
+  /* ---------- 주차별 학습 내용 열람 권한 (운영 모드) ----------
+     서버의 config.js 에는 학습 내용이 빠져 있음(locked). 승인된 수강생이나 관리자면
+     전체 내용을 받아 이 탭에 두고 새로고침, 로그아웃·잠금하면 지우고 새로고침 */
+  const ssGet = (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
+  const ssSet = (k, v) => { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch (e) {} };
+  const weeksLocked = () => !!(C.curriculum && (C.curriculum.weeks || []).some((w) => w.locked));
+  let accessBusy = false;
+  function syncWeekAccess() {
+    if (!LIVE || !C.curriculum || accessBusy) return;
+    const has = !!ssGet("rw_full_weeks");
+    const can = !!(session || X.adminToken);
+    if (has && !can) { ssSet("rw_full_weeks", null); accessBusy = true; location.reload(); return; }
+    if (!has && can && weeksLocked()) {
+      accessBusy = true;
+      const req = X.adminToken ? { adminToken: X.adminToken } : { sid: session.sid, token: session.token };
+      api("getWeeks", req)
+        .then((r) => {
+          if (!Array.isArray(r.weeks)) return;
+          ssSet("rw_full_weeks", JSON.stringify(r.weeks));
+          if (X.adminToken && document.querySelector(".admin.show")) ssSet("rw_reopen_quiet", "1");
+          location.reload();
+        })
+        .catch(() => { accessBusy = false; });   // 승인 대기 등: 잠긴 채로 둠
+    }
+  }
+  X.syncWeekAccess = syncWeekAccess;
+  document.addEventListener("rw-admin", syncWeekAccess);
+
   const modeNote = LIVE ? "" :
-    `<p class="mode-note"><b>체험 모드</b> — 데이터가 이 브라우저에만 저장됩니다. 실제 수업에서는 config.js 의 backend 주소를 연결하세요.</p>`;
+    `<p class="mode-note"><b>Demo mode</b> — data is saved only in this browser.</p>`;
   const body = (key) => {
     const sec = $(`[data-feature="${key}"]`);
     return sec ? $(".feature-body", sec) : null;
@@ -166,13 +230,13 @@
           ${items.map((n) => `
             <details class="card notice ${n.important ? "important" : ""}">
               <summary>
-                ${n.important ? `<span class="chip hw urgent">중요</span>` : `<span class="chip off">공지</span>`}
+                ${n.important ? `<span class="chip hw urgent">Important</span>` : `<span class="chip off">Notice</span>`}
                 <strong>${esc(n.title)}</strong>
                 <span class="notice-date">${esc(n.date || "")}</span>
               </summary>
               <div class="notice-body">${esc(n.body || "").replace(/\n/g, "<br>")}</div>
             </details>`).join("")}
-        </div>` : `<p class="muted">등록된 공지가 없습니다.</p>`;
+        </div>` : `<p class="muted">No notices yet.</p>`;
       const first = $(".notice", noticeBox);
       if (first) first.open = true;
     }
@@ -185,7 +249,7 @@
       bar.id = "noticeBar";
       bar.className = "notice-bar";
       bar.href = "#notices";
-      bar.innerHTML = `<b>중요</b> <span>${esc(imp.title)}</span>`;
+      bar.innerHTML = `<b>Important</b> <span>${esc(imp.title)}</span>`;
       ($(".hero-main") || $(".hero-content")).prepend(bar);
     }
   };
@@ -216,7 +280,7 @@
       <div class="card poll-closed" id="pollClosed" hidden>숨긴 설문입니다. 수강생 화면에는 이 섹션이 보이지 않습니다.</div>
       <div class="vote-layout">
         <form class="card vote-card" id="voteForm" novalidate>
-          <h3>주제 선택</h3>
+          <h3>Choose a topic</h3>
           <div class="vote-opts">
             ${V.options.map((o, i) => `
               <label class="option vote-opt">
@@ -224,16 +288,16 @@
                 <span>${esc(o)}</span>
               </label>`).join("")}
           </div>
-          <button class="btn" type="submit">투표하기</button>
+          <button class="btn" type="submit">Vote</button>
           <div class="form-msg" role="status"></div>
         </form>
         <div class="card result-card">
           <div class="result-head">
-            <h3>투표 결과</h3>
-            <span class="live"><i></i>${LIVE ? "실시간" : "이 브라우저 기준"}</span>
+            <h3>Results</h3>
+            <span class="live"><i></i>${LIVE ? "Live" : "This browser"}</span>
           </div>
           <div class="bars" id="voteBars"></div>
-          <div class="result-foot">총 <b id="voteTotal">0</b>명 참여 <span id="voteUpdated"></span></div>
+          <div class="result-foot"><b id="voteTotal">0</b> votes <span id="voteUpdated"></span></div>
         </div>
       </div>
       <div class="poll-history" id="pollHistory" hidden></div>`;
@@ -326,19 +390,19 @@
         const cls = [n && n === max ? "lead" : "", res.mine === i ? "mine" : ""].join(" ");
         return `
           <div class="bar-row ${cls}">
-            <div class="bar-label"><span>${esc(o)}${res.mine === i ? ' <b class="chip now">내 선택</b>' : ""}</span><span class="bar-val">${n}표 · ${pct}%</span></div>
-            <div class="bar-track" role="img" aria-label="${esc(o)} ${n}표 ${pct}%"><div class="bar-fill" style="width:${pct}%"></div></div>
+            <div class="bar-label"><span>${esc(o)}${res.mine === i ? ' <b class="chip now">My vote</b>' : ""}</span><span class="bar-val">${n} · ${pct}%</span></div>
+            <div class="bar-track" role="img" aria-label="${esc(o)} ${n} votes ${pct}%"><div class="bar-fill" style="width:${pct}%"></div></div>
           </div>`;
       }).join("");
       $("#voteTotal").textContent = total;
       const now = new Date();
-      $("#voteUpdated").textContent = `· ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} 갱신`;
+      $("#voteUpdated").textContent = `· ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} updated`;
       if (res.mine != null) {
         const r = $(`input[value="${res.mine}"]`, form);
         if (r && !form.dataset.touched) r.checked = true;
-        $("button", form).textContent = "투표 바꾸기";
+        $("button", form).textContent = "Change vote";
       } else {
-        $("button", form).textContent = "투표하기";
+        $("button", form).textContent = "Vote";
       }
     };
 
@@ -347,11 +411,11 @@
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       const picked = $("input:checked", form);
-      if (!picked) return setMsg(msg, "no", "주제를 하나 골라 주세요.");
+      if (!picked) return setMsg(msg, "no", "Please choose a topic.");
       const btn = $("button", form);
       btn.disabled = true;
       api("vote", { voterId: voterId(), option: Number(picked.value), pid, n: V.options.length })
-        .then((res) => { delete form.dataset.touched; draw(res); setMsg(msg, "ok", "투표가 반영되었습니다. 감사합니다!"); })
+        .then((res) => { delete form.dataset.touched; draw(res); setMsg(msg, "ok", "Your vote has been counted. Thank you!"); })
         .catch((err) => setMsg(msg, "no", err.message))
         .finally(() => { btn.disabled = false; });
     });
@@ -379,8 +443,10 @@
       const req = f.required ? "required" : "";
       const ph = f.placeholder ? `placeholder="${esc(f.placeholder)}"` : "";
       if (f.type === "textarea") return `<textarea id="${id}" name="${esc(f.name)}" rows="4" ${ph} ${req}></textarea>`;
-      if (f.type === "select") return `<select id="${id}" name="${esc(f.name)}" ${req}><option value="">선택하세요</option>${f.options.map((o) => `<option>${esc(o)}</option>`).join("")}</select>`;
+      if (f.type === "select") return `<select id="${id}" name="${esc(f.name)}" ${req}><option value="">Select</option>${f.options.map((o) => `<option>${esc(o)}</option>`).join("")}</select>`;
       if (f.type === "radio") return `<div class="radio-row" role="radiogroup" id="${id}" aria-labelledby="${id}-l">${f.options.map((o) => `<label class="pill"><input type="radio" name="${esc(f.name)}" value="${esc(o)}"><span>${esc(o)}</span></label>`).join("")}</div>`;
+      // 로그인용 PIN: 숫자 4자리를 학생이 직접 정함
+      if (f.type === "pin") return `<input id="${id}" name="${esc(f.name)}" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password" ${ph} ${req}>`;
       const type = ["email", "tel"].includes(f.type) ? f.type : "text";
       return `<input id="${id}" name="${esc(f.name)}" type="${type}" ${ph} ${req} autocomplete="${f.type === "email" ? "email" : f.type === "tel" ? "tel" : "off"}">`;
     };
@@ -393,7 +459,7 @@
           <div class="form-grid">
             ${A.fields.map((f) => `
               <div class="field ${f.type === "textarea" || f.type === "radio" ? "wide" : ""}" data-name="${esc(f.name)}">
-                <label id="ap-${esc(f.name)}-l" for="ap-${esc(f.name)}">${esc(f.label)}${f.required ? ' <span class="req">*</span>' : ' <span class="opt">(선택)</span>'}</label>
+                <label id="ap-${esc(f.name)}-l" for="ap-${esc(f.name)}">${esc(f.label)}${f.required ? ' <span class="req">*</span>' : ' <span class="opt">(optional)</span>'}</label>
                 ${control(f)}
                 <div class="field-error" id="ap-${esc(f.name)}-err"></div>
               </div>`).join("")}
@@ -404,8 +470,8 @@
               </div>` : ""}
           </div>
           <div class="form-actions">
-            <button class="btn btn-lg" type="submit">신청서 제출</button>
-            <button class="btn ghost" type="reset">다시 쓰기</button>
+            <button class="btn btn-lg" type="submit">Submit application</button>
+            <button class="btn ghost" type="reset">Clear</button>
           </div>
         </form>`;
       bindForm();
@@ -421,12 +487,12 @@
 
     const checkField = (form, f) => {
       const v = valueOf(form, f.name);
-      if (f.required && !v) return `${f.label}을(를) ${f.type === "select" || f.type === "radio" ? "선택" : "입력"}해 주세요.`;
-      if (v && f.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return "이메일 형식이 올바르지 않습니다. (예: name@university.ac.kr)";
-      if (v && f.pattern && !new RegExp(f.pattern).test(v)) return f.patternMessage || `${f.label} 형식을 확인해 주세요.`;
+      if (f.required && !v) return `Please ${f.type === "select" || f.type === "radio" ? "choose" : "enter"} ${f.label.toLowerCase()}.`;
+      if (v && f.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return "Please enter a valid email address (e.g., name@university.ac.kr).";
+      if (v && f.pattern && !new RegExp(f.pattern).test(v)) return f.patternMessage || `Please check the format of ${f.label.toLowerCase()}.`;
       return "";
     };
-    const allChecks = () => A.fields.concat(A.consent ? [{ name: "consent", label: "개인정보 동의", required: true, type: "checkbox" }] : []);
+    const allChecks = () => A.fields.concat(A.consent ? [{ name: "consent", label: "Consent", required: true, type: "checkbox" }] : []);
     const showError = (form, f, text) => {
       const wrap = $(`.field[data-name="${f.name}"]`, form);
       wrap.classList.toggle("invalid", !!text);
@@ -473,9 +539,9 @@
           const missing = problems.filter((p) => p.missing);
           const wrong = problems.filter((p) => !p.missing);
           alertBox.innerHTML = `
-            <strong>⚠ 확인이 필요한 항목이 ${problems.length}개 있습니다.</strong>
-            ${missing.length ? `<div>빠진 항목: ${missing.map((p) => `<a href="#" data-focus="${esc(p.f.name)}">${esc(p.f.label)}</a>`).join(", ")}</div>` : ""}
-            ${wrong.length ? `<div>형식 확인: ${wrong.map((p) => `<a href="#" data-focus="${esc(p.f.name)}">${esc(p.f.label)}</a>`).join(", ")}</div>` : ""}`;
+            <strong>⚠ ${problems.length} field${problems.length > 1 ? "s need" : " needs"} your attention.</strong>
+            ${missing.length ? `<div>Missing: ${missing.map((p) => `<a href="#" data-focus="${esc(p.f.name)}">${esc(p.f.label)}</a>`).join(", ")}</div>` : ""}
+            ${wrong.length ? `<div>Check format: ${wrong.map((p) => `<a href="#" data-focus="${esc(p.f.name)}">${esc(p.f.label)}</a>`).join(", ")}</div>` : ""}`;
           alertBox.hidden = false;
           alertBox.focus();
           alertBox.scrollIntoView({ behavior: X.reduceMotion ? "auto" : "smooth", block: "center" });
@@ -486,7 +552,7 @@
         A.fields.forEach((f) => (data[f.name] = valueOf(form, f.name)));
         const btn = $("button[type=submit]", form);
         btn.disabled = true;
-        btn.textContent = "제출 중…";
+        btn.textContent = "Submitting…";
         api("apply", { data })
           .then(() => {
             store.set("applied", true);
@@ -494,9 +560,9 @@
               ${modeNote}
               <div class="card success-card" tabindex="-1" id="applyDone">
                 <div class="success-icon">✓</div>
-                <h3>${esc(data.name)}님, 신청서가 제출되었습니다</h3>
+                <h3>Thank you, ${esc(data.name)}. Your application has been submitted.</h3>
                 <p>${esc(A.successMessage)}</p>
-                <button class="btn ghost" type="button" id="applyAgain">새 신청서 작성</button>
+                <button class="btn ghost" type="button" id="applyAgain">Submit another application</button>
               </div>`;
             $("#applyDone").focus();
             $("#applyAgain").addEventListener("click", drawForm);
@@ -506,7 +572,7 @@
             alertBox.hidden = false;
             alertBox.focus();
             btn.disabled = false;
-            btn.textContent = "신청서 제출";
+            btn.textContent = "Submit application";
           });
       });
     };
@@ -526,24 +592,24 @@
       ${modeNote}
       <form class="card login-card" id="loginForm" novalidate>
         <div class="login-icon" aria-hidden="true"></div>
-        <h3>수강생 로그인</h3>
+        <h3>Student login</h3>
         ${notice ? `<p class="login-notice">${esc(notice)}</p>` : ""}
-        <div class="field"><label for="lg-sid">학번</label><input id="lg-sid" name="sid" inputmode="numeric" autocomplete="username" placeholder="2026123456"><div class="field-error"></div></div>
-        <div class="field"><label for="lg-name">이름</label><input id="lg-name" name="name" autocomplete="name" placeholder="홍길동"><div class="field-error"></div></div>
-        <div class="field"><label for="lg-pin">${esc(C.student.pinLabel || "비밀번호")}</label><input id="lg-pin" name="pin" type="password" inputmode="numeric" autocomplete="current-password"><div class="field-error"></div></div>
-        <button class="btn btn-lg" type="submit">로그인</button>
+        <div class="field"><label for="lg-sid">Student ID</label><input id="lg-sid" name="sid" inputmode="numeric" autocomplete="username" placeholder="2026123456"><div class="field-error"></div></div>
+        <div class="field"><label for="lg-name">Name</label><input id="lg-name" name="name" autocomplete="name" placeholder="Jane Kim"><div class="field-error"></div></div>
+        <div class="field"><label for="lg-pin">${esc(C.student.pinLabel || "PIN")}</label><input id="lg-pin" name="pin" type="password" inputmode="numeric" autocomplete="current-password"><div class="field-error"></div></div>
+        <button class="btn btn-lg" type="submit">Log in</button>
         <div class="form-msg" role="status"></div>
       </form>`;
     const form = $("#loginForm");
     form.addEventListener("submit", (e) => {
       e.preventDefault();
-      const labels = { sid: "학번", name: "이름", pin: "비밀번호" };
+      const labels = { sid: "your student ID", name: "your name", pin: "your PIN" };
       let first = null;
       Object.keys(labels).forEach((n) => {
         const el = form.elements[n];
         const empty = !el.value.trim();
         el.closest(".field").classList.toggle("invalid", empty);
-        $(".field-error", el.closest(".field")).textContent = empty ? `${labels[n]}을(를) 입력해 주세요.` : "";
+        $(".field-error", el.closest(".field")).textContent = empty ? `Please enter ${labels[n]}.` : "";
         if (empty && !first) first = el;
       });
       if (first) return first.focus();
@@ -555,6 +621,7 @@
           store.set("session", session);
           drawDashboard();
           refreshVotes();
+          syncWeekAccess();              // 승인된 수강생: 주차별 학습 내용 열기
         })
         .catch((err) => { setMsg($(".form-msg", form), "no", err.message); btn.disabled = false; });
     });
@@ -566,27 +633,27 @@
       ${modeNote}
       <div class="card student-bar">
         <span class="avatar-s">${esc(session.name.charAt(0))}</span>
-        <span class="who"><b>${esc(session.name)}</b>님 <span class="muted-inline">· ${esc(session.sid)}</span></span>
-        <button class="btn ghost small" type="button" id="logoutBtn">로그아웃</button>
+        <span class="who"><b>${esc(session.name)}</b> <span class="muted-inline">· ${esc(session.sid)}</span></span>
+        <button class="btn ghost small" type="button" id="logoutBtn">Log out</button>
       </div>
       <div class="student-grid">
         <div class="card att-card">
-          <h3>출석 체크</h3>
-          <div class="att-today" id="attToday">불러오는 중…</div>
+          <h3>Attendance</h3>
+          <div class="att-today" id="attToday">Loading…</div>
           <div class="att-grid" id="attGrid"></div>
           <div class="att-summary" id="attSummary"></div>
         </div>
         <div class="card sub-card">
-          <h3>과제 제출</h3>
+          <h3>Submit an assignment</h3>
           ${hwWeeks.length ? `
           <form id="subForm" novalidate>
             <div class="field">
-              <label for="subWeek">과제 선택</label>
+              <label for="subWeek">Assignment</label>
               <select id="subWeek">
                 ${hwWeeks.map((w) => {
                   const r = remain(w.due);
                   const closed = r.cls === "closed" && !S.allowLate;
-                  return `<option value="${w.no}" ${closed ? "disabled" : ""}>${w.no}주차 · ${esc(w.assignment.title)} (${esc(r.dday)})</option>`;
+                  return `<option value="${w.no}" ${closed ? "disabled" : ""}>Week ${w.no} · ${esc(w.assignment.title)} (${esc(r.dday)})</option>`;
                 }).join("")}
               </select>
             </div>
@@ -594,14 +661,14 @@
             <label class="drop" id="drop">
               <input type="file" id="subFile" accept="${esc(S.accept || "")}">
               <span class="drop-icon">⬆</span>
-              <span class="drop-text"><b>파일을 끌어다 놓거나 눌러서 선택</b><small>최대 ${S.maxFileMB}MB · ${esc((S.accept || "").replace(/\./g, "").replace(/,/g, ", "))}</small></span>
+              <span class="drop-text"><b>Drag a file here or click to choose</b><small>Max ${S.maxFileMB}MB · ${esc((S.accept || "").replace(/\./g, "").replace(/,/g, ", "))}</small></span>
             </label>
             <div class="file-info" id="fileInfo" hidden></div>
-            <button class="btn" type="submit">제출하기</button>
+            <button class="btn" type="submit">Submit</button>
             <div class="form-msg" role="status"></div>
           </form>
-          <h4 class="sub-h">내 제출 내역</h4>
-          <ul class="sub-list" id="subList"><li class="muted">불러오는 중…</li></ul>` : `<p class="muted">등록된 과제가 없습니다.</p>`}
+          <h4 class="sub-h">My submissions</h4>
+          <ul class="sub-list" id="subList"><li class="muted">Loading…</li></ul>` : `<p class="muted">No assignments yet.</p>`}
         </div>
       </div>`;
 
@@ -610,6 +677,7 @@
       session = null;
       drawLogin();
       refreshVotes();
+      syncWeekAccess();                  // 학습 내용 다시 잠그기
     });
 
     let status = { attendance: {}, submissions: [] };
@@ -620,22 +688,22 @@
       $("#attGrid").innerHTML = weeks.map((w) => {
         const k = keyOf(w.date);
         const st = att[w.no] ? "ok" : k === keyOf(t0) ? "today" : w.date < t0 ? "miss" : "future";
-        const label = { ok: "출석", today: "오늘", miss: "결석", future: "예정" }[st];
-        return `<div class="att-cell ${st}" title="${w.no}주차 ${esc(fmtDate(w.date))} · ${label}">
-                  <b>${w.no}주</b><span>${w.date.getMonth() + 1}/${w.date.getDate()}</span><i>${{ ok: "✓", today: "●", miss: "✕", future: "" }[st]}</i>
+        const label = { ok: "Present", today: "Today", miss: "Absent", future: "Upcoming" }[st];
+        return `<div class="att-cell ${st}" title="Week ${w.no} · ${esc(fmtDate(w.date))} · ${label}">
+                  <b>W${w.no}</b><span>${w.date.getMonth() + 1}/${w.date.getDate()}</span><i>${{ ok: "✓", today: "●", miss: "✕", future: "" }[st]}</i>
                 </div>`;
       }).join("");
       const past = weeks.filter((w) => w.date <= t0).length;
       const okN = weeks.filter((w) => att[w.no]).length;
-      $("#attSummary").innerHTML = `출석 <b>${okN}</b> / 지난 수업 ${past}회 <span class="legend"><i class="lg att-ok"></i>출석 <i class="lg att-miss"></i>결석 <i class="lg done"></i>예정</span>`;
+      $("#attSummary").innerHTML = `Present <b>${okN}</b> / ${past} past classes <span class="legend"><i class="lg att-ok"></i>Present <i class="lg att-miss"></i>Absent <i class="lg done"></i>Upcoming</span>`;
 
       const box = $("#attToday");
       if (tw && att[tw.no]) {
-        box.innerHTML = `<div class="att-msg ok">✓ ${tw.no}주차 출석 완료 <small>${esc(hhmm(att[tw.no]))}</small></div>`;
+        box.innerHTML = `<div class="att-msg ok">✓ Checked in for Week ${tw.no} <small>${esc(hhmm(att[tw.no]))}</small></div>`;
       } else if (tw) {
         box.innerHTML = `
-          <div class="att-msg now">오늘은 <b>${tw.no}주차</b> 수업일입니다 · ${esc(tw.time)}</div>
-          <button class="btn btn-lg att-btn" type="button" id="attBtn">지금 출석하기</button>
+          <div class="att-msg now">Today is the <b>Week ${tw.no}</b> class · ${esc(tw.time)}</div>
+          <button class="btn btn-lg att-btn" type="button" id="attBtn">Check in now</button>
           <div class="form-msg" role="status"></div>`;
         $("#attBtn").addEventListener("click", (e) => {
           e.target.disabled = true;
@@ -646,8 +714,8 @@
       } else {
         const nw = weeks.find((w) => w.date > t0);
         box.innerHTML = `
-          <div class="att-msg off">오늘은 수업일이 아닙니다.${nw ? `<br><small>다음 수업: ${nw.no}주차 · ${esc(fmtDate(nw.date))} ${esc(nw.time)}</small>` : ""}</div>
-          <button class="btn btn-lg att-btn" type="button" disabled>출석 체크는 수업일에 열립니다</button>`;
+          <div class="att-msg off">There is no class today.${nw ? `<br><small>Next class: Week ${nw.no} · ${esc(fmtDate(nw.date))} ${esc(nw.time)}</small>` : ""}</div>
+          <button class="btn btn-lg att-btn" type="button" disabled>Check-in opens on class days</button>`;
       }
     };
 
@@ -656,10 +724,10 @@
       if (!list) return;
       const subs = (status.submissions || []).slice().sort((a, b) => (a.at < b.at ? 1 : -1));
       list.innerHTML = subs.length ? subs.map((s) => {
-        return `<li><span class="chip ${s.late ? "hw urgent" : "now"}">${s.week}주차${s.late ? " · 지각" : ""}</span>
+        return `<li><span class="chip ${s.late ? "hw urgent" : "now"}">Week ${s.week}${s.late ? " · late" : ""}</span>
                   <span class="sub-file">${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.fileName)}</a>` : esc(s.fileName)}</span>
                   <small>${s.size ? esc(fmtSize(s.size)) + " · " : ""}${esc(hhmm(s.at))}</small></li>`;
-      }).join("") : `<li class="muted">아직 제출한 과제가 없습니다.</li>`;
+      }).join("") : `<li class="muted">You have not submitted anything yet.</li>`;
     };
 
     // 과제 제출 폼
@@ -669,9 +737,9 @@
       const firstOpen = hwWeeks.find((w) => !$(`option[value="${w.no}"]`, sel).disabled);
       const pick = pendingWeek && !$(`option[value="${pendingWeek}"]`, sel)?.disabled ? pendingWeek : firstOpen && firstOpen.no;
       if (pick) sel.value = String(pick);
-      if (pendingWeek && String(pick) !== String(pendingWeek)) setMsg(msg, "no", `${pendingWeek}주차 과제는 제출이 마감되었습니다.`);
+      if (pendingWeek && String(pick) !== String(pendingWeek)) setMsg(msg, "no", `The Week ${pendingWeek} assignment is closed.`);
       pendingWeek = null;
-      if (!firstOpen) { $("button", sf).disabled = true; setMsg(msg, "no", "현재 제출할 수 있는 과제가 없습니다."); }
+      if (!firstOpen) { $("button", sf).disabled = true; setMsg(msg, "no", "There are no open assignments right now."); }
 
       const drawDue = () => {
         const w = weeks[Number(sel.value) - 1];
@@ -679,16 +747,16 @@
         const r = remain(w.due);
         const done = (status.submissions || []).some((s) => s.week === w.no);
         $("#subDue").className = "sub-due " + r.cls;
-        $("#subDue").innerHTML = `마감 ${esc(fmtDateTime(w.due))} · <b>${esc(r.dday)} ${esc(r.text)}</b>${done ? `<br><small>이미 제출한 과제입니다. 다시 제출하면 최신 파일로 대체됩니다.</small>` : ""}`;
+        $("#subDue").innerHTML = `Due ${esc(fmtDateTime(w.due))} · <b>${esc(r.dday)} ${esc(r.text)}</b>${done ? `<br><small>You already submitted this. Submitting again will replace it with the newest file.</small>` : ""}`;
       };
       sel.addEventListener("change", drawDue);
 
       const exts = (C.student.accept || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
       const checkFile = (f) => {
-        if (!f) return "제출할 파일을 선택해 주세요.";
+        if (!f) return "Please choose a file to submit.";
         const ext = "." + f.name.split(".").pop().toLowerCase();
-        if (exts.length && !exts.includes(ext)) return `${ext} 파일은 제출할 수 없습니다. (${exts.join(", ")})`;
-        if (f.size > C.student.maxFileMB * 1048576) return `파일이 너무 큽니다. ${C.student.maxFileMB}MB 이하로 올려 주세요. (현재 ${fmtSize(f.size)})`;
+        if (exts.length && !exts.includes(ext)) return `${ext} files are not accepted. (${exts.join(", ")})`;
+        if (f.size > C.student.maxFileMB * 1048576) return `The file is too large. Please upload ${C.student.maxFileMB}MB or less. (Current: ${fmtSize(f.size)})`;
         return "";
       };
       const showFile = () => {
@@ -715,7 +783,7 @@
       const toBase64 = (f) => new Promise((res, rej) => {
         const r = new FileReader();
         r.onload = () => res(String(r.result).split(",")[1]);
-        r.onerror = () => rej(new Error("파일을 읽지 못했습니다."));
+        r.onerror = () => rej(new Error("Could not read the file."));
         r.readAsDataURL(f);
       });
 
@@ -726,10 +794,10 @@
         if (err) { setMsg(msg, "no", err); fileIn.focus(); return; }
         const w = weeks[Number(sel.value) - 1];
         const late = remain(w.due).cls === "closed";
-        if (late && !C.student.allowLate) return setMsg(msg, "no", "마감된 과제입니다.");
+        if (late && !C.student.allowLate) return setMsg(msg, "no", "This assignment is closed.");
         const btn = $("button[type=submit]", sf);
         btn.disabled = true;
-        btn.textContent = "제출 중…";
+        btn.textContent = "Submitting…";
         (LIVE ? toBase64(f) : Promise.resolve(null))
           .then((data) => api("submit", {
             sid: session.sid, token: session.token, week: w.no, late,
@@ -743,10 +811,10 @@
             sf.reset();
             sel.value = String(w.no);
             info.hidden = true;
-            setMsg(msg, "ok", `${w.no}주차 과제 "${f.name}" 제출 완료!${LIVE ? "" : " (체험 모드: 파일 이름만 기록됩니다)"}`);
+            setMsg(msg, "ok", `Submitted "${f.name}" for Week ${w.no}!${LIVE ? "" : " (Demo mode: only the file name is recorded.)"}`);
           })
           .catch((er) => setMsg(msg, "no", er.message))
-          .finally(() => { btn.disabled = false; btn.textContent = "제출하기"; });
+          .finally(() => { btn.disabled = false; btn.textContent = "Submit"; });
       });
       sf._drawDue = drawDue;
     }
@@ -755,7 +823,7 @@
       .then((res) => { status = res; drawAttendance(); drawSubs(); if (sf) sf._drawDue(); })
       .catch((err) => {
         $("#attToday").innerHTML = `<div class="att-msg off">${esc(err.message)}</div>`;
-        if (/로그인|token|인증/.test(err.message)) { store.del("session"); session = null; drawLogin("다시 로그인해 주세요."); }
+        if (/log ?in|token|approv/i.test(err.message)) { store.del("session"); session = null; drawLogin("Please log in again."); }
       });
   };
 
@@ -773,7 +841,7 @@
         if (opt && !opt.disabled) { sel.value = String(pendingWeek); sel.dispatchEvent(new Event("change")); }
         pendingWeek = null;
       } else {
-        drawLogin(`로그인하면 ${pendingWeek}주차 과제를 바로 제출할 수 있습니다.`);
+        drawLogin(`Log in to submit the Week ${pendingWeek} assignment.`);
       }
     });
   }
@@ -809,6 +877,7 @@
             : Promise.resolve().then(() => (list ? store.set("curriculum", list) : store.del("curriculum"))))
         .then(() => {
           try { sessionStorage.setItem("rw_week_saved", `${focusNo || ""}|${text}`); } catch (e) {}
+          ssSet("rw_full_weeks", null);   // 새 내용으로 다시 받기
           location.reload();
         });
 
@@ -836,7 +905,7 @@
       wrap.className = "modal-backdrop";
       wrap.innerHTML = `
         <form class="modal week-modal" role="dialog" aria-modal="true" aria-labelledby="wfTitle" novalidate>
-          <button class="modal-x" type="button" aria-label="닫기">×</button>
+          <button class="modal-x" type="button" aria-label="Close">×</button>
           <div class="modal-body">
             <h2 id="wfTitle">${isNew ? `${list.length + 1}주차 추가` : `${index + 1}주차 수정`}</h2>
             <div class="field"><label for="wfName">제목 <span class="req">*</span></label><input id="wfName" value="${esc(w.title || "")}"><div class="field-error"></div></div>
@@ -954,7 +1023,8 @@
     };
 
     curSec.addEventListener("click", (e) => {
-      if (!X.adminToken) return;
+      if (!X.adminToken || !e.target.closest("[data-week-add], [data-week-edit], [data-week-del], [data-week-reset]")) return;
+      if (LIVE && weeksLocked()) { alert("주차 내용을 불러오는 중입니다. 잠시 후 다시 눌러 주세요."); syncWeekAccess(); return; }
       const add = e.target.closest("[data-week-add]");
       const ed = e.target.closest("[data-week-edit]");
       const del = e.target.closest("[data-week-del]");
@@ -1006,7 +1076,7 @@
     wrap.className = "modal-backdrop";
     wrap.innerHTML = `
       <form class="modal ev-modal" role="dialog" aria-modal="true" aria-labelledby="evTitle" novalidate>
-        <button class="modal-x" type="button" aria-label="닫기">×</button>
+        <button class="modal-x" type="button" aria-label="Close">×</button>
         <div class="modal-body">
           <h2 id="evTitle">${isNew ? "일정 추가" : "일정 수정"}</h2>
           <div class="ev-row">
@@ -1102,18 +1172,18 @@
       wrap.className = "modal-backdrop";
       wrap.innerHTML = `
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="evPopTitle">
-          <button class="modal-x" type="button" aria-label="닫기">×</button>
+          <button class="modal-x" type="button" aria-label="Close">×</button>
           <div class="modal-body">
-            <span class="badge">일정 안내</span>
-            <h2 id="evPopTitle">${list.length === 1 ? esc(list[0].title) : "다가오는 일정"}</h2>
+            <span class="badge">Upcoming event</span>
+            <h2 id="evPopTitle">${list.length === 1 ? esc(list[0].title) : "Upcoming events"}</h2>
             <ul class="ev-pop-list">${list.map((ev) => `
               <li><b>${esc(fmtDate(X.parseDate(ev.date)))}${ev.time ? " " + esc(ev.time) : ""}</b>${list.length > 1 ? ` · ${esc(ev.title)}` : ""}
                 ${ev.body ? `<p>${esc(ev.body).replace(/\n/g, "<br>")}</p>` : ""}</li>`).join("")}</ul>
-            ${$("#calendar") ? `<a class="btn btn-lg modal-cta" href="#calendar" data-ev-goto="${esc(list[0].date)}">달력에서 보기</a>` : ""}
+            ${$("#calendar") ? `<a class="btn btn-lg modal-cta" href="#calendar" data-ev-goto="${esc(list[0].date)}">View in calendar</a>` : ""}
           </div>
           <div class="modal-foot">
-            <button type="button" class="link-btn" data-act="today">오늘 하루 보지 않기</button>
-            <button type="button" class="link-btn" data-act="close">닫기</button>
+            <button type="button" class="link-btn" data-act="today">Don't show again today</button>
+            <button type="button" class="link-btn" data-act="close">Close</button>
           </div>
         </div>`;
       document.body.appendChild(wrap);
@@ -1158,7 +1228,7 @@
       wrap.className = "modal-backdrop";
       wrap.innerHTML = `
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="promoTitle" aria-describedby="promoText">
-          <button class="modal-x" type="button" aria-label="닫기">×</button>
+          <button class="modal-x" type="button" aria-label="Close">×</button>
           <div class="modal-sky" aria-hidden="true"></div>
           <div class="modal-body">
             <span class="badge">${esc(P.badge)}</span>
@@ -1168,8 +1238,8 @@
             <a class="btn btn-lg modal-cta" href="#${esc(P.button.target)}">${esc(P.button.label)}</a>
           </div>
           <div class="modal-foot">
-            <button type="button" class="link-btn" data-act="today">오늘 하루 보지 않기</button>
-            <button type="button" class="link-btn" data-act="close">닫기</button>
+            <button type="button" class="link-btn" data-act="today">Don't show again today</button>
+            <button type="button" class="link-btn" data-act="close">Close</button>
           </div>
         </div>`;
       document.body.appendChild(wrap);

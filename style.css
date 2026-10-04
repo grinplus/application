@@ -1518,3 +1518,25 @@ body::after { z-index: -1; }
   .wf-row .wf-u { grid-column: 1 / 2; grid-row: 2; }
   .mat-preview iframe { height: 360px; }
 }
+
+/* ---------- v1.1: 승인 전 잠긴 주차 · 강의 관리 ---------- */
+.week-locked { position: relative; margin: 18px 0 4px; padding: 6px 0 6px 26px; border-left: 1px solid var(--k-line); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
+.week-locked::before { content: ""; position: absolute; left: -4px; top: 14px; width: 7px; height: 7px; border-radius: 9999px !important; background: var(--k-blue); }
+.week-locked p { margin: 0; color: var(--k-ink-2); font-size: .93rem; flex: 1 1 320px; }
+.week-locked p b { color: var(--k-ink); }
+.rs-filter { display: inline-flex; gap: 4px; }
+.rs-filter .btn[aria-pressed="true"] { background: var(--k-ink); color: #fff; border-color: var(--k-ink); }
+.rs-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 4px 0 12px; }
+.rs-add[hidden] { display: none; }
+.rs-add input { padding: 8px 11px; border: 1px solid var(--k-line); font: inherit; font-size: .9rem; width: 150px; }
+.rs-add input:focus { outline: 1px solid var(--k-blue); outline-offset: -1px; border-color: var(--k-blue); }
+.rs-table tr.rs-pending td { background: #FFFBEB; }
+.rs-table td small, .att-table td small { color: var(--k-ink-2); }
+.rs-table code { font-size: .85rem; background: var(--k-canvas); padding: 1px 6px; }
+.rs-tools { display: flex; gap: 6px; align-items: center; }
+.sub-table th { min-width: 74px; }
+.sb.ok { color: var(--k-blue); font-weight: 700; background: #EFF6FF; }
+.sb.late { color: var(--warn-ink); font-weight: 700; background: #FFFBEB; font-size: .8rem; }
+.sb.miss { color: var(--k-red); background: #FEF2F2; }
+.sb a { color: inherit; text-decoration: none; }
+.sb a:hover { text-decoration: underline; }

@@ -6,27 +6,28 @@
    - 메뉴(menu)의 id 는 아래 각 섹션의 id 와 같아야 해당 위치로 이동합니다.
    - order 에서 순서를 바꾸거나 이름을 지우면 섹션 순서/표시가 바뀝니다.
    - 날짜는 "2026-09-01", 날짜+시간은 "2026-09-07 23:59" 형식으로 적습니다.
+   - 수강생에게 보이는 글은 모두 영어로 작성합니다.
    ========================================================= */
 window.SITE_CONFIG = {
   /* ---------- 기본 정보 ---------- */
   site: {
     title: "AI & English Language Education",
-    version: "v1.0.0",               // 상단 제목 오른쪽에 회색 글씨로 표시 (비우면 숨김)
-    footer: "© 2026 읽기쓰기 프로그램 · AI & English Language Education"
+    version: "v1.1.0",               // 상단 제목 오른쪽에 회색 글씨로 표시 (비우면 숨김)
+    footer: "© 2026 Reading & Writing Program · AI & English Language Education"
   },
 
   /* ---------- 상단 메뉴 (id = 이동할 섹션) ---------- */
   menu: [
-    { id: "hero",       label: "강의 소개" },
-    { id: "notices",    label: "공지" },
-    { id: "curriculum", label: "주차별 강의" },
-    { id: "calendar",   label: "수업 달력" },
-    { id: "vote",       label: "주제 투표" },
-    { id: "apply",      label: "수강 신청" },
-    { id: "student",    label: "출석·과제" },
-    { id: "readings",   label: "Reading" },
-    { id: "quiz",       label: "문제풀이" },
-    { id: "instructor", label: "교수자" }
+    { id: "hero",       label: "About" },
+    { id: "notices",    label: "Notices" },
+    { id: "curriculum", label: "Weekly Lessons" },
+    { id: "calendar",   label: "Calendar" },
+    { id: "vote",       label: "Topic Poll" },
+    { id: "apply",      label: "Enroll" },
+    { id: "student",    label: "Attendance" },
+    { id: "readings",   label: "Readings" },
+    { id: "quiz",       label: "Quiz" },
+    { id: "instructor", label: "Instructor" }
   ],
 
   /* ---------- 첫 화면 아래 섹션 순서 ---------- */
@@ -35,22 +36,22 @@ window.SITE_CONFIG = {
 
   /* ---------- 관리자 ----------
      비밀번호는 그대로 적지 않고 '해시값'으로만 저장합니다.
-     비밀번호 변경은 관리자 화면 → [설정 파일] 탭에서 하세요. (기본 비밀번호는 안내서 참고)  */
+     비밀번호 변경은 관리자 화면 → [설정 파일] 탭에서 하세요.  */
   admin: {
     salt: "rw-kgm8yaqp",
     passwordHash: "4ca5d64092987fd20f541d6901b4fd5e733fde313a3154a7693f9978b25b446f"
   },
 
   /* ---------- 공지사항 ----------
-     체험 모드에서는 아래 items 가 처음 공지로 보이고, 관리자 화면에서 올린 공지가 더해집니다.
-     실제 운영 모드에서는 관리자 화면에서 올린 공지가 구글 시트에 저장되어 모두에게 보입니다.  */
+     관리자 화면에서 공지를 한 번도 올리지 않았을 때 아래 items 가 기본 공지로 보입니다.
+     운영 모드에서는 관리자 화면에서 올린 공지가 데이터베이스에 저장되어 모두에게 보입니다.  */
   notices: {
     id: "notices",
-    title: "공지사항",
-    lead: "수업 관련 소식을 확인하세요.",
+    title: "Notices",
+    lead: "Check here for the latest class updates.",
     items: [
-      { date: "2026-10-02", title: "6주차 수업 준비물 안내", body: "10월 6일(화) 수업에서는 그래픽 오거나이저 실습을 합니다.\n노트북과 교과서 지문 1개를 꼭 준비해 주세요.", important: true },
-      { date: "2026-09-25", title: "5주차 과제 마감 안내", body: "Pre-reading·어휘 활동지 과제는 10월 5일(월) 23:59까지 '출석·과제' 메뉴에서 제출해 주세요.", important: false }
+      { date: "2026-10-02", title: "What to prepare for Week 6", body: "In the class on Tuesday, October 6, we will practice using graphic organizers.\nPlease bring your laptop and one textbook passage.", important: true },
+      { date: "2026-09-25", title: "Week 5 assignment deadline", body: "The Pre-reading & Vocabulary Worksheet is due Monday, October 5, at 23:59. Please submit it from the 'Attendance' menu.", important: false }
     ]
   },
 
@@ -66,28 +67,28 @@ window.SITE_CONFIG = {
   popup: {
     enabled: true,
     delaySeconds: 2,                 // 사이트에 들어오고 몇 초 뒤에 뜰지
-    badge: "수강 신청 안내",
-    title: "추가 수강 신청 접수 중",
-    text: "AI & English Language Education · Reading and Writing 강의의 추가 수강 신청을 받고 있습니다.",
+    badge: "Enrollment",
+    title: "Late enrollment is open",
+    text: "We are accepting additional students for AI & English Language Education · Reading and Writing.",
     points: [
-      "신청 기간: 2026. 9. 28 ~ 10. 9",
-      "잔여 정원: 5명 (선착순 마감)",
-      "매주 화요일 14:00 ~ 15:50"
+      "Application period: Sep 28 – Oct 9, 2026",
+      "Seats left: 5 (first come, first served)",
+      "Every Tuesday, 14:00 – 15:50"
     ],
-    button: { label: "수강 신청하러 가기", target: "apply" }
+    button: { label: "Go to the enrollment form", target: "apply" }
   },
 
   /* ---------- 수업 일정 (주차별 날짜·달력이 여기서 자동 계산됩니다) ----------
      startDate : 1주차 수업 날짜 (화요일). 이후 매주 7일씩 더해집니다.
      holidays  : 휴강일. 수업일이 겹치면 그 주는 건너뛰고 다음 주로 밀립니다.
-                 예) { date: "2026-10-06", name: "개교기념일 휴강" }
+                 예) { date: "2026-10-06", name: "No class (University Foundation Day)" }
      submitLink: 외부 과제 제출 주소 (비워 두면 사이트의 '출석·과제' 제출 화면으로 이동)
      place     : 수업 방식 표시 (온라인 수업)
      onlineLink: 온라인 수업 입장 주소 (Zoom 등). 적으면 주차별 강의·달력에 '수업 입장' 버튼이 생깁니다. */
   schedule: {
     startDate: "2026-09-01",
-    time: "14:00 ~ 15:50",
-    place: "온라인 실시간 (Zoom)",
+    time: "14:00 – 15:50",
+    place: "Live online (Zoom)",
     onlineLink: "",
     holidays: [],
     submitLink: ""
@@ -97,51 +98,51 @@ window.SITE_CONFIG = {
   hero: {
     // image: 과목명 앞(PC 왼쪽 · 휴대폰 위)에 들어가는 그림. 비우면 그림 없이 표시됩니다.
     image: "images/hero.jpg",
-    imageAlt: "AI와 사람이 함께하는 언어 학습 일러스트",
-    badge: "2026 읽기쓰기 프로그램",
+    imageAlt: "Illustration of people and AI learning languages together",
+    badge: "2026 Reading & Writing Program",
     title: "AI & English Language Education",
     subtitle: "Reading and Writing",
-    text: "영어 텍스트를 훑고, 깊이 이해하고, 비판적으로 읽는 전략을 배우고, AI 도구로 영어 읽기 수업을 직접 설계해 봅니다. 15주 동안 '영어를 잘 읽는 사람'에서 '영어 읽기를 잘 가르치는 사람'으로 성장합니다.",
+    text: "Learn strategies for skimming, understanding, and critically reading English texts, then design your own English reading lessons with AI tools. Over 15 weeks, you will grow from a good reader of English into a good teacher of English reading.",
     // link 를 비워 두면 사이트 안의 수강 신청서로 이동합니다 (외부 신청 페이지가 있으면 주소 입력)
-    applyButton: { label: "수강 신청", link: "" },
-    curriculumButton: { label: "커리큘럼 보기", target: "curriculum" }
+    applyButton: { label: "Enroll", link: "" },
+    curriculumButton: { label: "View curriculum", target: "curriculum" }
   },
 
   /* ---------- 강의 개요 (일정·시간·방식·대상) ---------- */
   info: {
     id: "info",
     items: [
-      { icon: "📅", label: "일정",     value: "2026. 9. 1 ~ 12. 8", sub: "매주 화요일 · 15주" },
-      { icon: "⏰", label: "시간",     value: "14:00 ~ 15:50",       sub: "주 1회 100분" },
-      { icon: "💻", label: "수업 방식", value: "100% 온라인",         sub: "Zoom 실시간 수업 + AI 실습" },
-      { icon: "🎓", label: "수강 대상", value: "영어교육 전공 학부생",  sub: "예비 영어교사 · 관심 있는 학생 누구나" }
+      { icon: "📅", label: "Schedule", value: "Sep 1 – Dec 8, 2026", sub: "Every Tuesday · 15 weeks" },
+      { icon: "⏰", label: "Time",     value: "14:00 – 15:50",       sub: "Once a week · 100 minutes" },
+      { icon: "💻", label: "Format",   value: "100% online",         sub: "Live Zoom classes + AI practice" },
+      { icon: "🎓", label: "For",      value: "English Education majors", sub: "Pre-service teachers · anyone interested" }
     ]
   },
 
   /* ---------- 숫자 통계 카드 ---------- */
   stats: {
     id: "stats",
-    title: "숫자로 보는 강의",
-    lead: "탄탄한 과정과 경험으로 수업을 설계했습니다.",
+    title: "The Course in Numbers",
+    lead: "A carefully structured course built on years of teaching experience.",
     items: [
-      { value: 15, suffix: "주",   label: "체계적인 과정" },
-      { value: 6,  suffix: "개",   label: "실습 AI 도구" },
-      { value: 15, suffix: "년+",  label: "ESL·EFL 강의 경력" }
+      { value: 15, suffix: " wks",  label: "Structured curriculum" },
+      { value: 6,  suffix: "",      label: "AI tools for practice" },
+      { value: 15, suffix: "+ yrs", label: "ESL/EFL teaching experience" }
     ]
   },
 
   /* ---------- 강의의 장점 (좌우 슬라이드) ---------- */
   strengths: {
     id: "strengths",
-    title: "이 강의의 장점",
-    lead: "옆으로 넘겨 보세요.",
+    title: "Why This Course",
+    lead: "Swipe to see more.",
     items: [
-      { icon: "🧭", title: "검증된 영어 읽기 전략", text: "스키마 활성화, Skimming·Scanning, 추론, 요약 등 읽기 전·중·후 전략을 이론과 함께 익힙니다." },
-      { icon: "🤖", title: "AI 실습 중심",         text: "AI로 수준별 읽기 자료와 문항을 만들고, 그 결과를 교사의 눈으로 검증하는 실습을 매주 합니다." },
-      { icon: "🏫", title: "수업 설계까지",         text: "배운 전략을 실제 중·고등학교 영어 읽기 수업안으로 설계하고 시연해 봅니다." },
-      { icon: "💬", title: "소그룹 피드백",         text: "동료 시연과 교수자 피드백으로 나의 수업 설계를 객관적으로 다듬습니다." },
-      { icon: "✍️", title: "읽기에서 쓰기로",       text: "Reading-to-Write 통합 활동으로 읽기 지도를 쓰기 지도와 자연스럽게 연결합니다." },
-      { icon: "📈", title: "성장 포트폴리오",       text: "15주간의 활동지·수업안·성찰을 포트폴리오로 모아 임용·현장 준비에 활용합니다." }
+      { icon: "🧭", title: "Proven reading strategies", text: "Learn pre-, while-, and post-reading strategies such as schema activation, skimming and scanning, inferencing, and summarizing, together with the theory behind them." },
+      { icon: "🤖", title: "Hands-on AI practice",      text: "Every week, create leveled reading materials and test items with AI, and check the results through a teacher's eyes." },
+      { icon: "🏫", title: "Real lesson design",        text: "Turn what you learn into actual middle and high school English reading lesson plans, and teach them in demo lessons." },
+      { icon: "💬", title: "Small-group feedback",      text: "Refine your lesson designs with peer demos and instructor feedback." },
+      { icon: "✍️", title: "From reading to writing",   text: "Connect reading instruction to writing instruction through Reading-to-Write activities." },
+      { icon: "📈", title: "Growth portfolio",          text: "Collect 15 weeks of worksheets, lesson plans, and reflections into a portfolio you can use for teacher exams and the classroom." }
     ]
   },
 
@@ -158,104 +159,104 @@ window.SITE_CONFIG = {
      ※ 참고 영상은 예시로 YouTube 검색 링크를 넣어 두었습니다. 실제 영상 주소로 바꿔 주세요. */
   curriculum: {
     id: "curriculum",
-    title: "주차별 강의",
-    lead: "주차를 누르면 일정, 학습 내용, 참고 영상, 과제를 볼 수 있습니다.",
+    title: "Weekly Lessons",
+    lead: "Open a week to see its schedule, topics, videos, and assignment.",
     weeks: [
       {
-        title: "오리엔테이션: AI 시대의 영어 읽기 교육",
-        summary: "강의 소개와 나의 영어 읽기 경험 돌아보기",
-        contents: ["강의 목표·평가 방법 안내", "AI가 바꾸는 영어 읽기 교육의 모습", "나의 영어 읽기 경험 공유"],
+        title: "Orientation: Teaching English Reading in the Age of AI",
+        summary: "Course overview and reflecting on your own reading experience",
+        contents: ["Course goals and assessment", "How AI is changing English reading instruction", "Sharing our experiences as English readers"],
         videos: [{ title: "AI in English language teaching", url: "https://www.youtube.com/results?search_query=AI+in+English+language+teaching" }],
-        assignment: { title: "영어 읽기 자기진단지", desc: "배부한 진단지를 작성하고, 나의 영어 읽기 강점·약점을 한 문단으로 정리해 제출하세요.", due: "2026-09-07 23:59" }
+        assignment: { title: "English Reading Self-Assessment", desc: "Complete the self-assessment form and write one paragraph about your strengths and weaknesses as an English reader.", due: "2026-09-07 23:59" }
       },
       {
-        title: "영어 읽기 과정의 이해",
-        summary: "상향식·하향식·상호작용 모형",
-        contents: ["Bottom-up / Top-down / Interactive 모형 비교", "L2 읽기의 특징과 어려움", "모형별 수업 활동 예시 분석"],
+        title: "Understanding the Reading Process",
+        summary: "Bottom-up, top-down, and interactive models",
+        contents: ["Comparing bottom-up, top-down, and interactive models", "Features and challenges of L2 reading", "Analyzing classroom activities for each model"],
         videos: [{ title: "Bottom-up and top-down reading", url: "https://www.youtube.com/results?search_query=bottom-up+top-down+reading+model" }]
       },
       {
-        title: "스키마 활성화와 예측하기",
-        summary: "Pre-reading 전략",
-        contents: ["스키마 이론과 배경지식의 역할", "제목·그림으로 내용 예측하기", "AI로 Pre-reading 질문 만들기 실습"],
+        title: "Activating Schema and Predicting",
+        summary: "Pre-reading strategies",
+        contents: ["Schema theory and the role of background knowledge", "Predicting content from titles and pictures", "Practice: creating pre-reading questions with AI"],
         videos: [{ title: "Pre-reading activities", url: "https://www.youtube.com/results?search_query=pre-reading+activities+ESL" }]
       },
       {
         title: "Skimming & Scanning",
-        summary: "빠르게 읽고 필요한 정보 찾기",
-        contents: ["Skimming과 Scanning의 차이", "시간 제한 읽기 활동 설계", "AI로 연습용 지문 만들기"],
+        summary: "Reading quickly and finding information",
+        contents: ["The difference between skimming and scanning", "Designing timed reading activities", "Creating practice passages with AI"],
         videos: [{ title: "Skimming and scanning", url: "https://www.youtube.com/results?search_query=skimming+and+scanning+reading+strategies" }]
       },
       {
-        title: "어휘 학습 전략과 AI 어휘 도구",
-        summary: "읽기를 돕는 어휘 지도",
-        contents: ["문맥으로 의미 추측하기", "핵심 어휘 선정 기준", "AI·Quizlet으로 어휘 활동 만들기"],
+        title: "Vocabulary Strategies and AI Vocabulary Tools",
+        summary: "Teaching vocabulary that supports reading",
+        contents: ["Guessing meaning from context", "Choosing key vocabulary", "Building vocabulary activities with AI and Quizlet"],
         videos: [{ title: "Teaching vocabulary in context", url: "https://www.youtube.com/results?search_query=teaching+vocabulary+in+context+ESL" }],
-        assignment: { title: "Pre-reading·어휘 활동지 만들기", desc: "고등학교 교과서 지문 하나를 골라 Pre-reading 질문 3개와 어휘 활동 1개를 만들어 제출하세요. AI를 사용했다면 프롬프트도 함께 적어 주세요.", due: "2026-10-05 23:59" }
+        assignment: { title: "Pre-reading & Vocabulary Worksheet", desc: "Choose one high school textbook passage and create three pre-reading questions and one vocabulary activity. If you used AI, include your prompts.", due: "2026-10-05 23:59" }
       },
       {
-        title: "텍스트 구조와 그래픽 오거나이저",
-        summary: "글의 뼈대를 시각화하기",
-        contents: ["비교·대조, 원인·결과, 문제·해결 구조", "그래픽 오거나이저 유형", "AI로 구조 분석 결과 검증하기"],
+        title: "Text Structure and Graphic Organizers",
+        summary: "Visualizing how a text is built",
+        contents: ["Compare–contrast, cause–effect, and problem–solution structures", "Types of graphic organizers", "Checking AI's structure analysis"],
         videos: [{ title: "Graphic organizers for reading", url: "https://www.youtube.com/results?search_query=graphic+organizers+reading+comprehension" }]
       },
       {
-        title: "추론과 질문 생성",
-        summary: "While-reading 전략",
-        contents: ["사실적·추론적·평가적 질문", "Think-aloud 시범 보이기", "AI가 만든 질문의 수준 평가하기"],
+        title: "Inferencing and Question Generation",
+        summary: "While-reading strategies",
+        contents: ["Literal, inferential, and evaluative questions", "Modeling a think-aloud", "Evaluating the quality of AI-generated questions"],
         videos: [{ title: "Making inferences in reading", url: "https://www.youtube.com/results?search_query=making+inferences+reading+lesson" }]
       },
       {
-        title: "중간 점검: 읽기 수업 미니 시연",
-        summary: "소그룹 10분 시연과 피드백",
-        contents: ["소그룹 미니 수업 시연", "동료 피드백 루브릭 활용", "전반부 학습 성찰"],
+        title: "Midterm Check: Mini Reading Lesson Demos",
+        summary: "10-minute small-group demos with feedback",
+        contents: ["Small-group mini lesson demos", "Using a peer feedback rubric", "Reflecting on the first half of the course"],
         videos: [],
-        assignment: { title: "중간 포트폴리오", desc: "1~7주 활동지와 미니 시연 수업안, 성찰문(A4 1쪽)을 하나의 파일로 묶어 제출하세요.", due: "2026-10-26 23:59" }
+        assignment: { title: "Midterm Portfolio", desc: "Combine your Week 1–7 worksheets, your demo lesson plan, and a one-page reflection into a single file and submit it.", due: "2026-10-26 23:59" }
       },
       {
-        title: "요약하기 전략과 AI 요약 비교",
-        summary: "Post-reading 전략",
-        contents: ["좋은 요약의 조건", "학생 요약 vs. AI 요약 비교", "요약 지도 활동 설계"],
+        title: "Summarizing Strategies and AI Summaries",
+        summary: "Post-reading strategies",
+        contents: ["What makes a good summary", "Student summaries vs. AI summaries", "Designing summary-writing activities"],
         videos: [{ title: "Teaching summarizing", url: "https://www.youtube.com/results?search_query=teaching+summarizing+reading+strategy" }]
       },
       {
-        title: "비판적 읽기와 AI 생성 텍스트 평가",
-        summary: "주장·근거·편향 읽어내기",
-        contents: ["Critical reading 질문 틀", "AI 생성 텍스트의 오류와 편향 찾기", "출처 확인 활동"],
+        title: "Critical Reading and Evaluating AI-Generated Texts",
+        summary: "Reading for claims, evidence, and bias",
+        contents: ["A question framework for critical reading", "Finding errors and bias in AI-generated texts", "Source-checking activities"],
         videos: [{ title: "Critical reading skills", url: "https://www.youtube.com/results?search_query=critical+reading+skills+ESL" }]
       },
       {
-        title: "수준별 읽기 자료 만들기",
-        summary: "AI로 텍스트 난이도 조정",
-        contents: ["텍스트 난이도 지표 (어휘·문장 길이)", "AI로 같은 글을 3단계 수준으로 바꾸기", "원문 의미 보존 여부 검증"],
+        title: "Creating Leveled Reading Materials",
+        summary: "Adjusting text difficulty with AI",
+        contents: ["Measures of text difficulty (vocabulary, sentence length)", "Rewriting one text at three levels with AI", "Checking that the original meaning is kept"],
         videos: [{ title: "Differentiated reading texts with AI", url: "https://www.youtube.com/results?search_query=differentiated+reading+texts+AI" }],
-        assignment: { title: "수준별 읽기 자료 세트", desc: "하나의 영어 지문을 AI로 상·중·하 3단계로 바꾸고, 각 수준의 차이와 검증 과정을 표로 정리해 제출하세요.", due: "2026-11-16 23:59" }
+        assignment: { title: "Leveled Reading Set", desc: "Use AI to rewrite one English passage at three levels (advanced, intermediate, basic). Summarize the differences between the levels and how you checked them in a table.", due: "2026-11-16 23:59" }
       },
       {
-        title: "AI 기반 읽기 문항 제작과 검증",
-        summary: "평가 문항 만들기",
-        contents: ["좋은 읽기 문항의 조건", "AI로 객관식·서술형 문항 생성", "정답 시비·오류 검토 체크리스트"],
+        title: "Creating and Checking AI-Based Reading Test Items",
+        summary: "Writing assessment items",
+        contents: ["What makes a good reading test item", "Generating multiple-choice and short-answer items with AI", "A checklist for answer disputes and errors"],
         videos: [{ title: "Writing reading comprehension questions", url: "https://www.youtube.com/results?search_query=writing+reading+comprehension+questions" }]
       },
       {
-        title: "읽기-쓰기 통합 활동",
-        summary: "Reading to Write",
-        contents: ["읽기 후 쓰기 활동 유형", "요약문·반응글 쓰기 지도", "AI 피드백 활용과 한계"],
+        title: "Integrating Reading and Writing",
+        summary: "Reading to write",
+        contents: ["Types of post-reading writing activities", "Teaching summaries and response writing", "Using AI feedback and its limits"],
         videos: [{ title: "Integrating reading and writing", url: "https://www.youtube.com/results?search_query=integrating+reading+and+writing+ESL" }]
       },
       {
-        title: "AI 활용 읽기 수업 설계 발표",
-        summary: "최종 수업안 발표",
-        contents: ["팀별 수업안 발표 (15분)", "질의응답과 동료 평가", "수업안 수정 방향 논의"],
+        title: "Presenting AI-Integrated Reading Lessons",
+        summary: "Final lesson plan presentations",
+        contents: ["Team lesson plan presentations (15 minutes)", "Q&A and peer evaluation", "Discussing how to revise the lesson plans"],
         videos: [],
-        assignment: { title: "AI 활용 영어 읽기 수업안", desc: "50분 분량의 영어 읽기 수업안(학습 목표·활동·AI 활용 방법·평가 포함)을 작성해 발표 전날까지 제출하세요.", due: "2026-11-30 23:59" }
+        assignment: { title: "AI-Integrated English Reading Lesson Plan", desc: "Write a 50-minute English reading lesson plan (including learning objectives, activities, how AI is used, and assessment) and submit it the day before your presentation.", due: "2026-11-30 23:59" }
       },
       {
-        title: "최종 성찰과 포트폴리오",
-        summary: "한 학기 정리",
-        contents: ["포트폴리오 공유", "AI와 영어교육에 대한 나의 관점 정리", "강의 평가"],
+        title: "Final Reflection and Portfolio",
+        summary: "Wrapping up the semester",
+        contents: ["Sharing portfolios", "Defining my own view of AI in English education", "Course evaluation"],
         videos: [],
-        assignment: { title: "최종 포트폴리오", desc: "학기 전체 활동지, 수정한 수업안, 최종 성찰문(A4 2쪽)을 묶어 제출하세요.", due: "2026-12-14 23:59" }
+        assignment: { title: "Final Portfolio", desc: "Combine all of your worksheets from the semester, your revised lesson plan, and a two-page final reflection, and submit them.", due: "2026-12-14 23:59" }
       }
     ]
   },
@@ -263,22 +264,22 @@ window.SITE_CONFIG = {
   /* ---------- 수업 달력 ---------- */
   calendar: {
     id: "calendar",
-    title: "수업 달력",
-    lead: "매주 화요일 수업이 자동으로 표시됩니다. 날짜를 누르면 그날 수업 내용이 나옵니다."
+    title: "Class Calendar",
+    lead: "Tuesday classes are shown automatically. Click a date to see that day's lesson."
   },
 
   /* ---------- 실시간 주제 투표 ---------- */
   vote: {
     id: "vote",
-    title: "가장 먼저 배우고 싶은 주제는?",
-    lead: "하나를 골라 투표하세요. 결과는 바로 막대그래프로 보입니다. (다시 고르면 투표가 바뀝니다)",
+    title: "Which topic do you want to learn first?",
+    lead: "Choose one and vote. The results appear right away as a bar chart. (Choosing again changes your vote.)",
     refreshSeconds: 10,              // 실제 운영 모드에서 결과를 새로 불러오는 간격
     options: [
       "Skimming & Scanning",
-      "AI로 수준별 읽기 자료 만들기",
-      "AI 기반 읽기 문항 제작",
-      "비판적 읽기와 AI 텍스트 평가",
-      "읽기-쓰기 통합 활동"
+      "Creating leveled reading materials with AI",
+      "Creating AI-based reading test items",
+      "Critical reading and evaluating AI texts",
+      "Integrating reading and writing"
     ]
   },
 
@@ -288,20 +289,22 @@ window.SITE_CONFIG = {
      pattern: 입력 형식 검사 (정규식), patternMessage: 형식이 틀렸을 때 안내 문구        */
   apply: {
     id: "apply",
-    title: "수강 신청서",
-    lead: "아래 항목을 작성해 제출해 주세요. * 표시는 필수 항목입니다.",
+    title: "Enrollment Form",
+    lead: "Please fill out the form below. Fields marked * are required.",
     fields: [
-      { name: "name",    label: "이름",   type: "text",  required: true, placeholder: "홍길동" },
-      { name: "sid",     label: "학번",   type: "text",  required: true, placeholder: "2026123456", pattern: "^[0-9]{6,10}$", patternMessage: "학번은 숫자 6~10자리로 입력해 주세요." },
-      { name: "major",   label: "학과",   type: "text",  required: true, placeholder: "영어교육과" },
-      { name: "year",    label: "학년",   type: "select", required: true, options: ["1학년", "2학년", "3학년", "4학년", "기타"] },
-      { name: "email",   label: "이메일", type: "email", required: true, placeholder: "name@university.ac.kr" },
-      { name: "phone",   label: "연락처", type: "tel",   required: false, placeholder: "010-0000-0000", pattern: "^[0-9\\-\\s]{9,13}$", patternMessage: "연락처는 숫자와 - 로 입력해 주세요." },
-      { name: "level",   label: "나의 영어 읽기 수준", type: "radio", required: true, options: ["기초", "중급", "고급"] },
-      { name: "motive",  label: "수강 동기", type: "textarea", required: true, placeholder: "이 강의에서 배우고 싶은 점을 자유롭게 적어 주세요." }
+      { name: "name",    label: "Name",       type: "text",  required: true, placeholder: "Jane Kim" },
+      { name: "sid",     label: "Student ID", type: "text",  required: true, placeholder: "2026123456", pattern: "^[0-9]{6,10}$", patternMessage: "Please enter your student ID as 6–10 digits." },
+      { name: "major",   label: "Major",      type: "text",  required: true, placeholder: "English Education" },
+      { name: "year",    label: "Year",       type: "select", required: true, options: ["1st year", "2nd year", "3rd year", "4th year", "Other"] },
+      { name: "email",   label: "Email",      type: "email", required: true, placeholder: "name@university.ac.kr" },
+      { name: "phone",   label: "Phone",      type: "tel",   required: false, placeholder: "010-0000-0000", pattern: "^[0-9\\-\\s]{9,13}$", patternMessage: "Please enter your phone number using digits and hyphens." },
+      { name: "level",   label: "My English reading level", type: "radio", required: true, options: ["Beginner", "Intermediate", "Advanced"] },
+      { name: "motive",  label: "Why do you want to take this course?", type: "textarea", required: true, placeholder: "Tell us what you hope to learn in this course." },
+      // type "pin": 로그인할 때 쓸 숫자 4자리 (학생이 직접 정함 → 강의 관리 명단에 그대로 등록)
+      { name: "pin",     label: "Create a login PIN", type: "pin", required: true, placeholder: "4 digits", pattern: "^[0-9]{4}$", patternMessage: "Please enter exactly 4 digits." }
     ],
-    consent: "수강 관리를 위한 개인정보(이름·학번·연락처) 수집·이용에 동의합니다.",
-    successMessage: "수강 신청이 접수되었습니다. 확인 메일은 수업 시작 전에 보내 드립니다."
+    consent: "I agree to the collection and use of my personal information (name, student ID, contact details) for course management.",
+    successMessage: "Your enrollment has been received. Once the instructor approves it, you can log in under 'Attendance' with your student ID, name, and PIN to see the weekly lessons."
   },
 
   /* ---------- 수강생 공간: 로그인 · 출석 · 과제 제출 ----------
@@ -311,9 +314,9 @@ window.SITE_CONFIG = {
      과제  : 위 '주차별 강의'에서 과제가 있는 주차가 자동으로 목록에 나옵니다.            */
   student: {
     id: "student",
-    title: "출석 · 과제 제출",
-    lead: "로그인하면 출석을 체크하고 과제 파일을 제출할 수 있습니다.",
-    pinLabel: "비밀번호 (교수자 안내 4자리)",
+    title: "Attendance & Assignments",
+    lead: "Approved students can log in to check in for class, submit assignments, and see the weekly lessons.",
+    pinLabel: "PIN (the 4 digits you chose when enrolling)",
     maxFileMB: 10,
     accept: ".pdf,.doc,.docx,.hwp,.hwpx,.ppt,.pptx,.zip,.jpg,.png",
     allowLate: false                 // true 면 마감 후에도 제출 가능 (지각 제출로 표시)
@@ -322,41 +325,41 @@ window.SITE_CONFIG = {
   /* ---------- 실습 AI 도구 ---------- */
   tools: {
     id: "tools",
-    title: "실습에 쓰는 AI 도구",
-    lead: "모두 무료로 시작할 수 있습니다. 첫 수업 전에 가입해 두세요.",
+    title: "AI Tools We Use",
+    lead: "All of them are free to start. Please sign up before the first class.",
     items: [
-      { icon: "🟠", name: "Claude",      use: "자료·문항 제작",  text: "수준별 영어 지문과 읽기 문항을 만들고 다듬어 봅니다.",          link: "https://claude.ai" },
-      { icon: "🟢", name: "ChatGPT",     use: "대화형 읽기",     text: "영어 지문에 대해 묻고 답하며 이해도와 질문 수준을 점검합니다.",   link: "https://chatgpt.com" },
-      { icon: "📒", name: "NotebookLM",  use: "자료 기반 학습",   text: "Reading 자료를 올려 출처가 표시된 답변으로 이론을 정리합니다.",   link: "https://notebooklm.google.com" },
-      { icon: "🌐", name: "DeepL",       use: "번역 비교",       text: "원문과 번역을 비교하며 의미 차이와 번역의 한계를 살펴봅니다.",   link: "https://www.deepl.com" },
-      { icon: "🃏", name: "Quizlet",     use: "어휘 학습",       text: "핵심 어휘 세트를 만들어 어휘 활동에 활용합니다.",               link: "https://quizlet.com" },
-      { icon: "🧩", name: "Padlet",      use: "협업 보드",       text: "소그룹 토론과 수업안 아이디어를 함께 정리하고 공유합니다.",       link: "https://padlet.com" }
+      { icon: "🟠", name: "Claude",      use: "Creating materials & items", text: "Create and refine leveled English passages and reading questions.",                  link: "https://claude.ai" },
+      { icon: "🟢", name: "ChatGPT",     use: "Conversational reading",     text: "Ask and answer questions about a passage to check comprehension and question quality.", link: "https://chatgpt.com" },
+      { icon: "📒", name: "NotebookLM",  use: "Source-based learning",      text: "Upload readings and organize theory with answers that cite their sources.",            link: "https://notebooklm.google.com" },
+      { icon: "🌐", name: "DeepL",       use: "Comparing translations",     text: "Compare originals and translations to explore differences in meaning and the limits of translation.", link: "https://www.deepl.com" },
+      { icon: "🃏", name: "Quizlet",     use: "Vocabulary learning",        text: "Build key vocabulary sets for vocabulary activities.",                                 link: "https://quizlet.com" },
+      { icon: "🧩", name: "Padlet",      use: "Collaboration board",        text: "Organize and share small-group discussions and lesson ideas together.",               link: "https://padlet.com" }
     ]
   },
 
   /* ---------- 수강 준비물 ---------- */
   prepare: {
     id: "prepare",
-    title: "수강 준비물",
-    lead: "첫 수업 전에 아래 항목을 확인해 주세요.",
+    title: "What to Prepare",
+    lead: "Please check these items before the first class.",
     items: [
-      { icon: "💻", title: "노트북 또는 태블릿", text: "매 수업 온라인으로 AI 실습을 합니다. 휴대폰보다는 노트북을 권장합니다." },
-      { icon: "🎧", title: "Zoom · 이어폰 · 마이크", text: "Zoom 을 미리 설치하고, 안정적인 인터넷 환경과 이어폰·마이크를 준비해 주세요." },
-      { icon: "🔑", title: "AI 도구 계정",       text: "위의 AI 도구에 미리 가입해 두세요 (무료 계정이면 충분합니다)." },
-      { icon: "📘", title: "중·고등 영어 교과서", text: "실습에 쓸 교과서 지문 1~2개를 골라 오세요 (PDF도 가능)." },
-      { icon: "📚", title: "Reading 자료 예습",  text: "매주 Reading 자료를 수업 전에 읽어 오세요." }
+      { icon: "💻", title: "Laptop or tablet",             text: "We practice with AI online in every class. A laptop is recommended over a phone." },
+      { icon: "🎧", title: "Zoom · earphones · microphone", text: "Install Zoom in advance, and prepare a stable internet connection, earphones, and a microphone." },
+      { icon: "🔑", title: "AI tool accounts",             text: "Sign up for the AI tools above in advance (free accounts are enough)." },
+      { icon: "📘", title: "Middle/high school English textbook", text: "Choose one or two textbook passages to use in practice (PDF is fine)." },
+      { icon: "📚", title: "Pre-read the readings",        text: "Read each week's readings before class." }
     ]
   },
 
   /* ---------- Reading 자료 ---------- */
   readings: {
     id: "readings",
-    title: "Reading 자료",
-    lead: "수업 전에 읽어 오면 토론이 훨씬 풍성해집니다.",
+    title: "Readings",
+    lead: "Reading ahead makes our discussions much richer.",
     items: [
-      { tag: "필수", title: "Teaching and Researching Reading", author: "William Grabe & Fredricka L. Stoller", summary: "L2 읽기의 이론과 연구, 교실 적용 방법을 폭넓게 다루는 핵심 교재입니다.", link: "" },
-      { tag: "필수", title: "Teaching Reading Skills in a Foreign Language", author: "Christine Nuttall", summary: "외국어 읽기 기술을 단계별로 지도하는 방법을 실제 활동과 함께 소개합니다.", link: "" },
-      { tag: "참고", title: "AI 활용 영어 읽기 수업 자료집", author: "수업 자료", summary: "주차별 실습 안내와 프롬프트 예시를 모은 자료집입니다.", link: "" }
+      { tag: "Required", title: "Teaching and Researching Reading", author: "William Grabe & Fredricka L. Stoller", summary: "The core text, covering L2 reading theory, research, and classroom application.", link: "" },
+      { tag: "Required", title: "Teaching Reading Skills in a Foreign Language", author: "Christine Nuttall", summary: "A step-by-step guide to teaching foreign language reading skills, with practical activities.", link: "" },
+      { tag: "Optional", title: "AI-Integrated English Reading Lesson Pack", author: "Course materials", summary: "A collection of weekly practice guides and example prompts.", link: "" }
     ]
   },
 
@@ -366,35 +369,35 @@ window.SITE_CONFIG = {
      단답형 answer = 정답으로 인정할 단어 목록           */
   quiz: {
     id: "quiz",
-    title: "문제풀이",
-    lead: "답을 고른 뒤 '정답 확인'을 눌러 보세요.",
+    title: "Quiz",
+    lead: "Choose an answer, then click 'Check answer'.",
     questions: [
       {
         type: "choice",
-        question: "글의 요지를 빠르게 파악하기 위해 제목·첫 문장·마지막 문장 위주로 읽는 전략은?",
+        question: "Which strategy focuses on the title, first sentences, and last sentences to quickly grasp the main idea of a text?",
         options: ["Scanning", "Skimming", "Intensive reading", "Reading aloud"],
         answer: 1,
-        explain: "Skimming은 세부 내용보다 글의 전체 흐름과 요지를 빠르게 파악하는 전략입니다."
+        explain: "Skimming is a strategy for quickly grasping the overall flow and main idea of a text rather than its details."
       },
       {
         type: "choice",
-        question: "읽기 전에 학습자의 배경지식을 끌어내는 활동의 이론적 근거가 되는 것은?",
-        options: ["스키마 이론", "행동주의 이론", "대조분석 가설", "입력 가설"],
+        question: "Which theory provides the basis for activities that draw on learners' background knowledge before reading?",
+        options: ["Schema theory", "Behaviorism", "Contrastive Analysis Hypothesis", "Input Hypothesis"],
         answer: 0,
-        explain: "스키마 이론은 독자의 배경지식(스키마)이 텍스트 이해에 큰 영향을 준다고 봅니다."
+        explain: "Schema theory holds that a reader's background knowledge (schema) strongly affects how they understand a text."
       },
       {
         type: "choice",
-        question: "AI로 만든 수준별 읽기 지문을 수업에 쓰기 전에 교사가 꼭 해야 할 일은?",
-        options: ["가장 짧은 버전만 사용한다", "원문과 대조해 의미 왜곡·오류가 없는지 검토한다", "AI가 만들었으니 그대로 쓴다", "학생에게 직접 고치게 한다"],
+        question: "What must a teacher do before using AI-generated leveled reading passages in class?",
+        options: ["Use only the shortest version", "Compare it with the original and check for distorted meaning or errors", "Use it as is, since AI made it", "Have students fix it themselves"],
         answer: 1,
-        explain: "AI는 난이도를 낮추면서 내용을 바꾸거나 틀리게 쓸 수 있으므로 교사의 검증이 필수입니다."
+        explain: "AI can change or misstate content while simplifying a text, so the teacher must check it."
       },
       {
         type: "short",
-        question: "지문에서 특정 정보(날짜, 이름 등)만 빠르게 찾아 읽는 전략은? (영어 한 단어)",
+        question: "Which strategy involves quickly searching a text for specific information, such as dates or names? (one English word)",
         answer: ["scanning"],
-        explain: "Scanning은 필요한 특정 정보를 찾기 위해 글을 훑는 전략입니다."
+        explain: "Scanning means running your eyes over a text to find the specific information you need."
       }
     ]
   },
@@ -402,16 +405,16 @@ window.SITE_CONFIG = {
   /* ---------- 자주 묻는 질문 ---------- */
   faq: {
     id: "faq",
-    title: "자주 묻는 질문",
-    lead: "궁금한 질문을 눌러 답변을 확인하세요.",
+    title: "Frequently Asked Questions",
+    lead: "Click a question to see the answer.",
     items: [
-      { q: "수업은 어디에서 하나요?",                     a: "모든 수업은 온라인(Zoom 실시간)으로만 진행합니다. 입장 주소는 주차별 강의와 수업 달력에서 확인할 수 있습니다." },
-      { q: "AI 도구를 처음 써 보는데 따라갈 수 있을까요?", a: "네. 첫 2주 동안 도구 사용법을 함께 익히며, 모든 실습은 단계별 안내와 함께 진행됩니다." },
-      { q: "영어교육 전공이 아니어도 들을 수 있나요?",     a: "네. 영어 읽기 지도에 관심 있는 학생이라면 누구나 수강할 수 있습니다." },
-      { q: "유료 AI 계정이 필요한가요?",                a: "아니요. 모든 실습은 무료 계정으로 가능하도록 설계했습니다." },
-      { q: "성적은 어떻게 평가하나요?",                 a: "수업 참여(문제풀이·토론) 20%, 주차별 과제 30%, 수업안 발표 20%, 최종 포트폴리오 30%로 평가합니다." },
-      { q: "결석하면 수업 내용을 어떻게 확인하나요?",    a: "'주차별 강의'에서 학습 내용과 참고 영상을 확인할 수 있습니다. 실습 과제는 교수자에게 이메일로 문의하세요." },
-      { q: "출석은 어떻게 하나요?",                     a: "수업 당일 Zoom 에 들어온 뒤, 이 사이트의 '출석·과제' 메뉴에서 로그인하고 '지금 출석하기'를 눌러 주세요." }
+      { q: "Where are the classes held?",                        a: "All classes are held online only (live on Zoom). You can find the link in Weekly Lessons and the Class Calendar." },
+      { q: "I've never used AI tools. Can I keep up?",           a: "Yes. We learn how to use the tools together in the first two weeks, and every practice session comes with step-by-step guidance." },
+      { q: "Can I take this course if I'm not an English Education major?", a: "Yes. Anyone interested in teaching English reading is welcome." },
+      { q: "Do I need a paid AI account?",                       a: "No. Every practice activity is designed to work with free accounts." },
+      { q: "How is the course graded?",                          a: "Participation (quizzes and discussion) 20%, weekly assignments 30%, lesson plan presentation 20%, and final portfolio 30%." },
+      { q: "If I miss a class, how can I catch up?",             a: "You can review the topics and videos in Weekly Lessons. For practice assignments, please email the instructor." },
+      { q: "How do I check in for attendance?",                  a: "On class day, join Zoom, then log in from the 'Attendance' menu on this site and click 'Check in now'." }
     ]
   },
 
@@ -421,40 +424,40 @@ window.SITE_CONFIG = {
      outcomes   : 수강 후 할 수 있게 되는 것                                              */
   infographic: {
     id: "infographic",
-    title: "프로그램 한눈에 보기",
-    lead: "AI & English Language Education · Reading and Writing 프로그램의 흐름을 한 장으로 정리했습니다.",
+    title: "The Program at a Glance",
+    lead: "The flow of the AI & English Language Education · Reading and Writing program on one page.",
     facts: [
-      { icon: "🗓️", value: "15주",      label: "매주 화요일 100분" },
-      { icon: "💻", value: "100%",      label: "온라인 실시간 (Zoom)" },
-      { icon: "🤖", value: "6개",       label: "실습 AI 도구" },
-      { icon: "📝", value: "6회",       label: "주차별 과제" },
-      { icon: "🎤", value: "2회",       label: "수업 시연 · 발표" }
+      { icon: "🗓️", value: "15 weeks", label: "Tuesdays, 100 minutes" },
+      { icon: "💻", value: "100%",     label: "Live online (Zoom)" },
+      { icon: "🤖", value: "6",        label: "AI tools for practice" },
+      { icon: "📝", value: "6",        label: "Weekly assignments" },
+      { icon: "🎤", value: "2",        label: "Demo lessons & presentations" }
     ],
     phases: [
-      { from: 1,  to: 4,  icon: "🧭", title: "기초 다지기",   items: ["영어 읽기 과정 이해", "스키마 활성화 · 예측", "Skimming & Scanning"] },
-      { from: 5,  to: 8,  icon: "🔍", title: "전략 익히기",   items: ["어휘 · 텍스트 구조", "추론과 질문 생성", "8주차 미니 수업 시연"] },
-      { from: 9,  to: 12, icon: "🤖", title: "AI와 실습하기", items: ["AI 요약 비교", "AI 텍스트 비판적 읽기", "수준별 자료 · 문항 제작"] },
-      { from: 13, to: 15, icon: "🏫", title: "수업 설계하기", items: ["읽기-쓰기 통합 활동", "AI 활용 수업안 발표", "최종 포트폴리오"] }
+      { from: 1,  to: 4,  icon: "🧭", title: "Foundations",       items: ["The English reading process", "Schema activation & prediction", "Skimming & Scanning"] },
+      { from: 5,  to: 8,  icon: "🔍", title: "Core strategies",   items: ["Vocabulary & text structure", "Inferencing & questioning", "Week 8 mini lesson demos"] },
+      { from: 9,  to: 12, icon: "🤖", title: "Practice with AI",  items: ["Comparing AI summaries", "Critically reading AI texts", "Leveled materials & test items"] },
+      { from: 13, to: 15, icon: "🏫", title: "Lesson design",     items: ["Integrating reading & writing", "AI-integrated lesson presentations", "Final portfolio"] }
     ],
-    sessionTitle: "한 번의 수업은 이렇게 진행돼요 (100분)",
+    sessionTitle: "How each class runs (100 minutes)",
     session: [
-      { label: "개념 강의",    minutes: 30 },
-      { label: "AI 실습",      minutes: 40 },
-      { label: "소그룹 토론",  minutes: 20 },
-      { label: "정리 · 출석",  minutes: 10 }
+      { label: "Lecture",          minutes: 30 },
+      { label: "AI practice",      minutes: 40 },
+      { label: "Group discussion", minutes: 20 },
+      { label: "Wrap-up · check-in", minutes: 10 }
     ],
-    assessmentTitle: "평가 비율",
+    assessmentTitle: "Grading",
     assessment: [
-      { label: "수업 참여",       percent: 20 },
-      { label: "주차별 과제",     percent: 30 },
-      { label: "수업안 발표",     percent: 20 },
-      { label: "최종 포트폴리오", percent: 30 }
+      { label: "Participation",       percent: 20 },
+      { label: "Weekly assignments",  percent: 30 },
+      { label: "Lesson presentation", percent: 20 },
+      { label: "Final portfolio",     percent: 30 }
     ],
-    outcomesTitle: "수강 후에는 이렇게 할 수 있어요",
+    outcomesTitle: "After this course, you will be able to",
     outcomes: [
-      "영어 읽기 전·중·후 전략을 설명하고 시범 보일 수 있다",
-      "AI로 수준별 읽기 자료와 문항을 만들고 검증할 수 있다",
-      "AI를 활용한 50분 영어 읽기 수업을 설계할 수 있다"
+      "Explain and model pre-, while-, and post-reading strategies",
+      "Create and check leveled reading materials and test items with AI",
+      "Design a 50-minute English reading lesson that uses AI"
     ]
   },
 

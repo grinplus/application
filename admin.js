@@ -56,8 +56,8 @@
   const syncBtn = () => {
     btn.classList.toggle("unlocked", !!adminToken);
     btn.classList.toggle("has-override", !!adminToken && !!window.SITE_CONFIG_OVERRIDDEN);   // 수정본 적용 중 표시 (관리자에게만)
-    btn.setAttribute("aria-label", adminToken ? "관리자 화면 열기" : "관리자 모드 (잠김)");
-    btn.title = adminToken ? "관리자 화면 열기" : "관리자 모드";
+    btn.setAttribute("aria-label", adminToken ? "관리자 화면 열기" : "Admin (locked)");
+    btn.title = adminToken ? "관리자 화면 열기" : "Admin";
     X.adminToken = adminToken;                       // 사이트 화면의 관리자 전용 도구(설문 숨기기 등)에 알림
     document.dispatchEvent(new Event("rw-admin"));
   };
@@ -176,7 +176,7 @@
      관리자 화면
      ========================================================= */
   const TABS = [
-    ["overview", "개요"], ["site", "사이트 정보"], ["sections", "섹션 내용"], ["roster", "수강생 명단"],
+    ["overview", "개요"], ["site", "사이트 정보"], ["sections", "섹션 내용"], ["roster", "강의 관리"],
     ["notices", "공지"], ["attendance", "출석"], ["submissions", "과제"], ["applications", "수강 신청"], ["file", "설정 파일"]
   ];
   const SECTION_NAMES = {
@@ -223,7 +223,7 @@
     if (data && !force) return Promise.resolve(data);
     return api("adminData", { adminToken }).then((res) => {
       data = res;
-      roster = (res.roster || []).map((r) => ({ sid: String(r.sid), name: String(r.name), pin: String(r.pin == null ? "" : r.pin) }));
+      roster = (res.roster || []).map((r) => ({ sid: String(r.sid), name: String(r.name), pin: String(r.pin == null ? "" : r.pin), status: r.status || "approved", createdAt: r.createdAt || r.created_at || "" }));
       return data;
     });
   };
@@ -323,7 +323,7 @@
       ${modeTip}
       <div class="admin-stats">
         <button class="card a-stat" data-tab="applications"><b>${data.applications.length}</b><span>수강 신청</span></button>
-        <button class="card a-stat" data-tab="roster"><b>${roster.length}</b><span>등록 수강생</span></button>
+        <button class="card a-stat" data-tab="roster"><b>${roster.filter((r) => r.status === "approved").length}${roster.some((r) => r.status !== "approved") ? `<small> · 대기 ${roster.filter((r) => r.status !== "approved").length}</small>` : ""}</b><span>승인된 수강생</span></button>
         <button class="card a-stat" data-tab="attendance"><b>${lastW ? `${lastAtt}<small>/${roster.length || "-"}</small>` : "-"}</b><span>${lastW ? `최근 출석 (${lastW.no}주차)` : "최근 출석"}</span></button>
         <button class="card a-stat" data-tab="submissions"><b>${data.submissions.length}</b><span>과제 제출</span></button>
         <button class="card a-stat" data-tab="notices"><b>${notices.length}</b><span>공지</span></button>
@@ -340,7 +340,7 @@
           <h3>빠른 작업</h3>
           <div class="quick">
             <button class="btn ghost small" data-tab="notices">📢 공지 올리기</button>
-            <button class="btn ghost small" data-tab="roster">👥 명단 등록</button>
+            <button class="btn ghost small" data-tab="roster">👥 강의 관리</button>
             <button class="btn ghost small" data-tab="site">✏️ 사이트 정보 고치기</button>
             <button class="btn ghost small" data-tab="file">💾 설정 파일 저장</button>
           </div>
@@ -493,88 +493,163 @@
     location.reload();
   };
 
-  /* ---------- 수강생 명단 ---------- */
-  const tabRoster = () => loadData().then(() => {
+  /* ---------- 강의 관리: 수강생 현황(승인) · 주차별 출석 현황 · 주차별 과제 제출 현황 ---------- */
+  const tabRoster = () => loadData(true).then(function draw() {
+    const apps = {};
+    (data.applications || []).forEach((a) => { if (a.sid) apps[String(a.sid)] = a; });
+    const now = new Date();
+    const todayD = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const pastWeeks = weeks.filter((w) => w.date <= now);
+    const hw = weeks.filter((w) => w.assignment && w.due);
+    const att = {};
+    data.attendance.forEach((a) => { att[`${a.sid}|${a.week}`] = a.at; });
+    const subs = {};
+    data.submissions.forEach((s) => { const k = `${s.sid}|${s.week}`; if (!subs[k] || s.at > subs[k].at) subs[k] = s; });
+    const attN = (sid) => weeks.filter((w) => att[`${sid}|${w.no}`]).length;
+    const subN = (sid) => hw.filter((w) => subs[`${sid}|${w.no}`]).length;
+    const nApproved = roster.filter((r) => r.status === "approved").length;
+    const nPending = roster.length - nApproved;
+    const filter = draw.filter || "all";
+    const list = roster
+      .filter((r) => filter === "all" || r.status === filter)
+      .sort((a, b) => (a.status === b.status ? String(a.createdAt).localeCompare(String(b.createdAt)) : a.status === "pending" ? -1 : 1));
+    const approved = roster.filter((r) => r.status === "approved").sort((a, b) => a.sid.localeCompare(b.sid));
+    const fmtDay = (iso) => { const d = new Date(iso); return isNaN(d) ? "" : `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+    const attSt = (sid, w) => (att[`${sid}|${w.no}`] ? "ok" : w.date < todayD ? "miss" : w.date.toDateString() === now.toDateString() ? "today" : "future");
+    const subSt = (sid, w) => { const s = subs[`${sid}|${w.no}`]; return s ? (s.late ? "late" : "ok") : w.due < now ? "miss" : "open"; };
+
     main().innerHTML = `
-      ${head("수강생 명단", "등록된 학번 · 이름 · 비밀번호(PIN)로 수강생이 로그인합니다.",
-        `<button class="btn ghost small" id="rsTpl">양식 내려받기</button>
-         <button class="btn ghost small" id="rsExport">명단 내려받기</button>`)}
+      ${head("강의 관리", "수강 신청을 하면 아래 명단에 <b>승인 대기</b>로 자동 등록됩니다. <b>승인</b>한 수강생만 로그인해 주차별 학습 내용을 보고, 출석·과제를 할 수 있습니다.",
+        `${refreshBtn}<button class="btn ghost small" id="rsExport">명단 내려받기</button>`)}
       ${modeTip}
-      <div class="card rs-import">
-        <h3>한꺼번에 등록하기</h3>
-        <p class="muted">엑셀에서 <b>학번 · 이름 · PIN</b> 세 열을 복사해 붙여 넣거나, CSV 파일을 불러오세요. PIN 이 비어 있으면 자동으로 만들어 드립니다.</p>
-        <textarea id="rsPaste" rows="4" placeholder="2026123456&#9;홍길동&#9;1234&#10;2026123457&#9;김영희&#9;5678"></textarea>
-        <div class="admin-actions">
-          <button class="btn small" id="rsAddPaste">붙여 넣은 내용 추가</button>
-          <label class="btn ghost small file-btn">CSV 파일 불러오기<input type="file" id="rsFile" accept=".csv,.txt"></label>
-        </div>
-      </div>
+
       <div class="card">
         <div class="admin-head small">
-          <h3>명단 <small id="rsCount"></small></h3>
+          <h3>수강생 현황 <small>전체 ${roster.length}명 · 승인 ${nApproved}명 · 대기 ${nPending}명</small></h3>
           <div class="admin-actions">
-            <button class="btn ghost small" id="rsPin">빈 PIN 자동 생성</button>
-            <button class="btn ghost small" id="rsAdd">+ 한 명 추가</button>
+            <span class="rs-filter" role="group" aria-label="보기">
+              ${[["all", "전체"], ["pending", "승인 대기"], ["approved", "승인됨"]].map(([k, l]) => `<button type="button" class="btn ghost small" data-filter="${k}" aria-pressed="${filter === k}">${l}</button>`).join("")}
+            </span>
+            ${nPending ? `<button type="button" class="btn small" id="rsApproveAll">대기 ${nPending}명 모두 승인</button>` : ""}
+            <button type="button" class="btn ghost small" id="rsAdd">+ 직접 추가</button>
           </div>
         </div>
-        <div class="table-wrap"><table class="a-table" id="rsTable"></table></div>
+        <form class="rs-add" id="rsAddForm" hidden novalidate>
+          <input id="rsSid" inputmode="numeric" placeholder="학번" aria-label="학번">
+          <input id="rsName" placeholder="이름" aria-label="이름">
+          <input id="rsPinNew" inputmode="numeric" maxlength="4" placeholder="PIN (비우면 자동)" aria-label="PIN">
+          <button class="btn small" type="submit">추가 (승인됨)</button>
+          <button class="btn ghost small" type="button" id="rsAddCancel">취소</button>
+        </form>
         <div class="form-msg" id="rsMsg" role="status"></div>
-        <div class="admin-actions end"><button class="btn" id="rsSave">명단 저장</button></div>
+        ${list.length ? `<div class="table-wrap"><table class="a-table rs-table">
+          <thead><tr><th>#</th><th>상태</th><th>학번</th><th>이름</th><th>학과</th><th>학년</th><th>이메일</th><th>PIN</th><th>신청일</th>
+            <th title="출석한 주 / 지난 수업">출석</th><th title="제출한 과제 / 전체 과제">과제</th><th>관리</th></tr></thead>
+          <tbody>${list.map((r, i) => {
+            const a = apps[r.sid] || {};
+            const ok = r.status === "approved";
+            return `<tr class="${ok ? "" : "rs-pending"}">
+              <td>${i + 1}</td>
+              <td>${ok ? `<span class="chip now">승인</span>` : `<span class="chip hw open">승인 대기</span>`}</td>
+              <td>${esc(r.sid)}</td><td><b>${esc(r.name)}</b></td>
+              <td>${esc(a.major || "")}</td><td>${esc(a.year || "")}</td>
+              <td class="wrap">${a.email ? `<a href="mailto:${esc(a.email)}">${esc(a.email)}</a>` : ""}</td>
+              <td><code>${esc(r.pin)}</code></td>
+              <td>${esc(fmtDay(a.at || r.createdAt))}</td>
+              <td>${ok ? `${attN(r.sid)}<small>/${pastWeeks.length}</small>` : "-"}</td>
+              <td>${ok ? `${subN(r.sid)}<small>/${hw.length}</small>` : "-"}</td>
+              <td class="rs-tools">
+                ${ok ? `<button type="button" class="btn ghost small" data-unapprove="${esc(r.sid)}">승인 취소</button>`
+                     : `<button type="button" class="btn small" data-approve="${esc(r.sid)}">승인</button>`}
+                <button type="button" class="btn ghost small" data-pin="${esc(r.sid)}">PIN 변경</button>
+                <button type="button" class="icon-btn" data-remove="${esc(r.sid)}" aria-label="${esc(r.name)} 삭제">✕</button>
+              </td>
+            </tr>`;
+          }).join("")}</tbody>
+        </table></div>` : `<p class="muted center">${roster.length ? "이 보기에 해당하는 수강생이 없습니다." : "아직 수강 신청한 학생이 없습니다. 수강 신청서를 제출하면 여기에 '승인 대기'로 나타납니다."}</p>`}
+      </div>
+
+      <div class="card">
+        <div class="admin-head small"><h3>주차별 출석 현황 <small>승인된 수강생 ${approved.length}명 · ✓ 출석 · ✕ 결석 · 빈칸은 수업 전</small></h3></div>
+        ${approved.length ? `<div class="table-wrap"><table class="a-table att-table">
+          <thead><tr><th class="sticky">학번</th><th class="sticky2">이름</th>${weeks.map((w) => `<th title="${esc(fmtDate(w.date))}">${w.no}주<br><small>${w.date.getMonth() + 1}/${w.date.getDate()}</small></th>`).join("")}<th>출석</th></tr></thead>
+          <tbody>${approved.map((s) => `<tr><td class="sticky">${esc(s.sid)}</td><td class="sticky2">${esc(s.name)}</td>${weeks.map((w) => {
+            const st = attSt(s.sid, w);
+            return `<td class="at ${st}" title="${st === "ok" ? esc(fmtAt(att[`${s.sid}|${w.no}`])) : ""}">${{ ok: "✓", miss: "✕", today: "·", future: "" }[st]}</td>`;
+          }).join("")}<td><b>${attN(s.sid)}</b></td></tr>`).join("")}</tbody>
+          <tfoot><tr><td class="sticky">출석 인원</td><td class="sticky2"></td>${weeks.map((w) => `<td>${w.date <= now ? approved.filter((s) => att[`${s.sid}|${w.no}`]).length : ""}</td>`).join("")}<td></td></tr></tfoot>
+        </table></div>` : `<p class="muted">승인된 수강생이 없습니다.</p>`}
+      </div>
+
+      <div class="card">
+        <div class="admin-head small"><h3>주차별 과제 제출 현황 <small>✓ 제출 · 지각 · ✕ 미제출(마감 지남) · 빈칸은 마감 전</small></h3></div>
+        ${approved.length && hw.length ? `<div class="table-wrap"><table class="a-table att-table sub-table">
+          <thead><tr><th class="sticky">학번</th><th class="sticky2">이름</th>${hw.map((w) => `<th title="${esc(w.assignment.title)} · 마감 ${esc(X.fmtDateTime(w.due))}">${w.no}주<br><small>${esc(w.assignment.title.length > 10 ? w.assignment.title.slice(0, 10) + "…" : w.assignment.title)}</small></th>`).join("")}<th>제출</th></tr></thead>
+          <tbody>${approved.map((s) => `<tr><td class="sticky">${esc(s.sid)}</td><td class="sticky2">${esc(s.name)}</td>${hw.map((w) => {
+            const st = subSt(s.sid, w), sub = subs[`${s.sid}|${w.no}`];
+            const mark = { ok: "✓", late: "지각", miss: "✕", open: "" }[st];
+            return `<td class="sb ${st}" title="${sub ? esc(`${sub.fileName} · ${fmtAt(sub.at)}`) : ""}">${sub && sub.url ? `<a href="${esc(sub.url)}" target="_blank" rel="noopener">${mark}</a>` : mark}</td>`;
+          }).join("")}<td><b>${subN(s.sid)}</b><small>/${hw.length}</small></td></tr>`).join("")}</tbody>
+          <tfoot><tr><td class="sticky">제출 인원</td><td class="sticky2"></td>${hw.map((w) => `<td>${approved.filter((s) => subs[`${s.sid}|${w.no}`]).length}</td>`).join("")}<td></td></tr></tfoot>
+        </table></div>` : `<p class="muted">${hw.length ? "승인된 수강생이 없습니다." : "등록된 과제가 없습니다."}</p>`}
       </div>`;
-    const list = roster.map((r) => Object.assign({}, r));
-    const draw = () => {
-      $("#rsCount").textContent = `${list.length}명`;
-      $("#rsTable").innerHTML = `
-        <thead><tr><th>#</th><th>학번</th><th>이름</th><th>PIN</th><th><span class="sr-only">삭제</span></th></tr></thead>
-        <tbody>${list.length ? list.map((r, i) => `
-          <tr>
-            <td>${i + 1}</td>
-            <td><input data-i="${i}" data-k="sid" value="${esc(r.sid)}" aria-label="${i + 1}번 학번" inputmode="numeric"></td>
-            <td><input data-i="${i}" data-k="name" value="${esc(r.name)}" aria-label="${i + 1}번 이름"></td>
-            <td><input data-i="${i}" data-k="pin" value="${esc(r.pin)}" aria-label="${i + 1}번 PIN" inputmode="numeric" class="pin"></td>
-            <td><button class="icon-btn" data-del="${i}" aria-label="${i + 1}번 삭제">✕</button></td>
-          </tr>`).join("") : `<tr><td colspan="5" class="muted center">등록된 수강생이 없습니다. 위에서 붙여 넣거나 '+ 한 명 추가'를 누르세요.</td></tr>`}</tbody>`;
-    };
-    draw();
+
+    bindRefresh(draw);
     const msg = $("#rsMsg");
-    const newPin = () => String(1000 + Math.floor(Math.random() * 9000));
-    const addRows = (rows) => {
-      let added = 0, updated = 0;
-      rows.forEach((r) => {
-        const sid = (r[0] || "").replace(/\s/g, "");
-        if (!/^\d+$/.test(sid)) return;                     // 머리글 등 숫자가 아닌 줄은 건너뜀
-        const ex = list.find((x) => x.sid === sid);
-        const rec = { sid, name: r[1] || "", pin: r[2] || newPin() };
-        if (ex) { Object.assign(ex, rec); updated++; } else { list.push(rec); added++; }
-      });
-      draw();
-      msg.className = "form-msg show ok";
-      msg.textContent = `${added}명 추가${updated ? `, ${updated}명 수정` : ""}되었습니다. '명단 저장'을 눌러야 반영됩니다.`;
+    const say = (type, text) => { msg.className = `form-msg show ${type}`; msg.textContent = text; };
+    const byId = (sid) => roster.find((r) => r.sid === sid);
+    const act = (btn, call, after) => {
+      btn.disabled = true;
+      return call.then((res) => { after(res); draw(); }).catch((err) => { btn.disabled = false; say("no", err.message); });
     };
-    $("#rsTable").addEventListener("input", (e) => { const t = e.target; if (t.dataset.k) list[t.dataset.i][t.dataset.k] = t.value.trim(); });
-    $("#rsTable").addEventListener("click", (e) => { const d = e.target.closest("[data-del]"); if (d) { list.splice(Number(d.dataset.del), 1); draw(); } });
-    $("#rsAdd").addEventListener("click", () => { list.push({ sid: "", name: "", pin: newPin() }); draw(); const ins = $$("#rsTable input[data-k=sid]"); ins[ins.length - 1].focus(); });
-    $("#rsPin").addEventListener("click", () => { list.forEach((r) => { if (!r.pin) r.pin = newPin(); }); draw(); });
-    $("#rsAddPaste").addEventListener("click", () => { addRows(parseTable($("#rsPaste").value)); $("#rsPaste").value = ""; });
-    $("#rsFile").addEventListener("change", (e) => {
-      const f = e.target.files[0];
-      if (!f) return;
-      f.text().then((t) => addRows(parseTable(t.replace(/^﻿/, ""))));
-      e.target.value = "";
+
+    $$("[data-filter]", main()).forEach((b) => b.addEventListener("click", () => { draw.filter = b.dataset.filter; draw(); }));
+    $("#rsAdd").addEventListener("click", () => { $("#rsAddForm").hidden = false; $("#rsSid").focus(); });
+    $("#rsAddCancel").addEventListener("click", () => { $("#rsAddForm").hidden = true; });
+    $("#rsAddForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const sid = $("#rsSid").value.trim(), name = $("#rsName").value.trim(), pin = $("#rsPinNew").value.trim();
+      if (!/^\d+$/.test(sid) || !name) return say("no", "학번(숫자)과 이름을 입력해 주세요.");
+      if (pin && !/^\d{4}$/.test(pin)) return say("no", "PIN 은 숫자 4자리로 입력해 주세요. (비우면 자동으로 만들어 드립니다)");
+      act(e.submitter || $("button[type=submit]", e.target), api("addStudent", { adminToken, sid, name, pin }), (res) => {
+        roster.push({ sid, name, pin: res.pin || pin, status: "approved", createdAt: new Date().toISOString() });
+        toast(`${name}(${sid}) 님을 추가했습니다. PIN ${res.pin || pin}`);
+      });
     });
-    $("#rsTpl").addEventListener("click", () => download("수강생명단_양식.csv", toCSV([["학번", "이름", "PIN"], ["2026123456", "홍길동", "1234"]])));
-    $("#rsExport").addEventListener("click", () => download(`수강생명단_${today()}.csv`, toCSV([["학번", "이름", "PIN"]].concat(list.map((r) => [r.sid, r.name, r.pin])))));
-    $("#rsSave").addEventListener("click", (e) => {
-      const bad = list.findIndex((r) => !r.sid || !r.name || !r.pin);
-      if (bad > -1) { msg.className = "form-msg show no"; msg.textContent = `${bad + 1}번 줄에 빈 칸이 있습니다. 학번 · 이름 · PIN 을 모두 입력해 주세요.`; return; }
-      const dup = list.find((r, i) => list.findIndex((x) => x.sid === r.sid) !== i);
-      if (dup) { msg.className = "form-msg show no"; msg.textContent = `학번 ${dup.sid} 이(가) 두 번 들어 있습니다.`; return; }
-      e.target.disabled = true;
-      api("saveRoster", { adminToken, roster: list })
-        .then(() => { roster = list.map((r) => Object.assign({}, r)); if (data) data.roster = roster; msg.className = "form-msg show ok"; msg.textContent = `명단 ${list.length}명을 저장했습니다.`; })
-        .catch((err) => { msg.className = "form-msg show no"; msg.textContent = err.message; })
-        .finally(() => { e.target.disabled = false; });
+    const approveAll = $("#rsApproveAll");
+    if (approveAll) approveAll.addEventListener("click", () => {
+      const pend = roster.filter((r) => r.status !== "approved");
+      if (!confirm(`승인 대기 중인 ${pend.length}명을 모두 승인할까요?`)) return;
+      act(approveAll, pend.reduce((p, r) => p.then(() => api("setStudentStatus", { adminToken, sid: r.sid, status: "approved" })), Promise.resolve()),
+        () => { pend.forEach((r) => (r.status = "approved")); toast(`${pend.length}명을 승인했습니다.`); });
     });
+    main().querySelector(".rs-table") && main().querySelector(".rs-table").addEventListener("click", (e) => {
+      const ap = e.target.closest("[data-approve]"), un = e.target.closest("[data-unapprove]");
+      const pn = e.target.closest("[data-pin]"), rm = e.target.closest("[data-remove]");
+      if (ap) { const r = byId(ap.dataset.approve); act(ap, api("setStudentStatus", { adminToken, sid: r.sid, status: "approved" }), () => { r.status = "approved"; toast(`${r.name} 님을 승인했습니다.`); }); }
+      if (un) {
+        const r = byId(un.dataset.unapprove);
+        if (!confirm(`${r.name}(${r.sid}) 님의 승인을 취소할까요?\n취소하면 로그인과 주차별 학습 내용 열람이 막힙니다.`)) return;
+        act(un, api("setStudentStatus", { adminToken, sid: r.sid, status: "pending" }), () => { r.status = "pending"; toast(`${r.name} 님의 승인을 취소했습니다.`); });
+      }
+      if (pn) {
+        const r = byId(pn.dataset.pin);
+        const v = prompt(`${r.name}(${r.sid}) 님의 새 PIN (숫자 4자리)`, r.pin);
+        if (v == null) return;
+        if (!/^\d{4}$/.test(v.trim())) return say("no", "PIN 은 숫자 4자리로 입력해 주세요.");
+        act(pn, api("setStudentPin", { adminToken, sid: r.sid, pin: v.trim() }), () => { r.pin = v.trim(); toast(`${r.name} 님의 PIN 을 바꿨습니다.`); });
+      }
+      if (rm) {
+        const r = byId(rm.dataset.remove);
+        if (!confirm(`${r.name}(${r.sid}) 님을 명단에서 삭제할까요?\n수강 신청서·출석·과제 기록은 그대로 남습니다.`)) return;
+        act(rm, api("deleteStudent", { adminToken, sid: r.sid }), () => { roster = roster.filter((x) => x.sid !== r.sid); data.roster = roster; toast(`${r.name} 님을 명단에서 삭제했습니다.`); });
+      }
+    });
+    $("#rsExport").addEventListener("click", () => download(`수강생현황_${today()}.csv`, toCSV(
+      [["학번", "이름", "상태", "PIN", "학과", "학년", "이메일", "신청일", "출석", "과제"]].concat(roster.map((r) => {
+        const a = apps[r.sid] || {};
+        return [r.sid, r.name, r.status === "approved" ? "승인" : "승인 대기", r.pin, a.major || "", a.year || "", a.email || "", fmtDay(a.at || r.createdAt), attN(r.sid), subN(r.sid)];
+      })))));
   });
 
   /* ---------- 공지 ---------- */
@@ -836,6 +911,8 @@ window.SITE_CONFIG = ${JSON.stringify(cfg, null, 2)};
 
   /* ---------- 시작 ---------- */
   btn.addEventListener("click", () => (adminToken ? openPanel() : openLogin()));
+  // 관리자 로그인 직후 주차별 학습 내용을 받느라 새로고침된 경우: 관리자 화면을 다시 열어 줌
+  if (ss.get("reopen_quiet") && adminToken) { ss.del("reopen_quiet"); openPanel(); }
   const reopen = ss.get("reopen");
   if (reopen && adminToken) {
     ss.del("reopen");
