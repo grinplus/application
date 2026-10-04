@@ -129,7 +129,7 @@
   /* ---------- 기본 정보 / 히어로 ---------- */
   const H = C.hero;
   document.title = C.site.title;
-  $("#brand").innerHTML = `<span>${esc(C.site.title)}</span>`;
+  $("#brand").innerHTML = `<span>${esc(C.site.title)}</span>${C.site.version ? `<small class="brand-ver">${esc(C.site.version)}</small>` : ""}`;
   if (H.image) {
     const img = $("#heroImage");
     img.src = H.image;
