@@ -830,7 +830,7 @@ window.SITE_CONFIG = ${JSON.stringify(cfg, null, 2)};
       e.target.reset();
       msg.className = "form-msg show ok";
       msg.innerHTML = `비밀번호를 바꿨습니다. <b>config.js 를 내려받아</b> 사이트 파일을 바꿔야 모든 곳에 적용됩니다.` +
-        (LIVE ? `<br>운영 모드라면 Apps Script 의 ADMIN_SALT / ADMIN_HASH 도 아래 값으로 바꿔 주세요.<br><code>ADMIN_SALT = "${esc(salt)}"</code><br><code>ADMIN_HASH = "${esc(cfg.admin.passwordHash)}"</code>` : "");
+        (LIVE ? `<br>운영 모드에서는 서버도 config.js 의 비밀번호로 확인하므로, 내려받은 config.js 를 사이트에 반영해야 새 비밀번호로 로그인할 수 있습니다.` : "");
     });
   };
 
