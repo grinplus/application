@@ -127,6 +127,9 @@ const initDb = async () => {
         await pool.query("INSERT INTO settings (key, value) VALUES ('roster_backfill_v11', $1) ON CONFLICT (key) DO NOTHING", [String(apps.rows.length)]);
         console.log(`[db] roster backfill: ${apps.rows.length} application(s) checked`);
       }
+      // 관리자 비밀번호: 관리자 화면에서 바꾼 값(DB)이 있으면 그것, 없으면 config.js
+      const ac = await pool.query("SELECT value FROM settings WHERE key = 'admin_cred'");
+      if (ac.rows.length) { try { const o = JSON.parse(ac.rows[0].value); if (o.salt && o.passwordHash) ADMIN_CRED = o; } catch (e) {} }
       dbReady = true;
       dbError = "";
       console.log("[db] ready");
@@ -155,7 +158,17 @@ const same = (a, b) => {
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 };
 const fail = (msg) => { const e = new Error(msg); e.expose = true; throw e; };
-const isAdmin = (req) => !!req.adminToken && same(req.adminToken, token("__admin__"));
+// 관리자 비밀번호 (salt + SHA-256). 시작할 때 DB 값으로 바뀔 수 있음
+let ADMIN_CRED = { salt: (CFG.admin && CFG.admin.salt) || "", passwordHash: (CFG.admin && CFG.admin.passwordHash) || "" };
+const checkAdminPassword = (pw) => {
+  const p = String(pw || "");
+  // 비상용: Railway 변수 ADMIN_PASSWORD 를 정해 두면 그 비밀번호로도 로그인 가능
+  if (process.env.ADMIN_PASSWORD && p && same(p, process.env.ADMIN_PASSWORD)) return true;
+  return !!ADMIN_CRED.passwordHash && same(sha256(`${ADMIN_CRED.salt}::${p}`), ADMIN_CRED.passwordHash);
+};
+// 관리자 토큰은 현재 비밀번호에 묶임 → 비밀번호를 바꾸면 예전 로그인은 자동으로 풀림
+const adminToken = () => token(`__admin__|${ADMIN_CRED.passwordHash}`);
+const isAdmin = (req) => !!req.adminToken && same(req.adminToken, adminToken());
 const requireAdmin = (req) => { if (!isAdmin(req)) fail("관리자 로그인이 필요합니다."); };
 const PENDING_MSG = "Your enrollment is waiting for instructor approval. You can log in once it is approved.";
 // 학생 확인: 토큰이 맞고, 명단에 있고, 승인된 학생만
@@ -282,11 +295,23 @@ const ACTIONS = {
 
   /* ----- 아래는 관리자만 ----- */
   async adminLogin(req) {
-    const A = CFG.admin || {};
-    if (!A.passwordHash || !same(sha256(`${A.salt || ""}::${String(req.password || "")}`), A.passwordHash)) {
-      fail("관리자 비밀번호가 맞지 않습니다. (서버의 config.js 비밀번호 확인)");
-    }
-    return { adminToken: token("__admin__") };
+    if (!checkAdminPassword(req.password)) fail("관리자 비밀번호가 맞지 않습니다.");
+    return { adminToken: adminToken() };
+  },
+  /* 저장된 관리자 로그인이 아직 유효한지 확인 */
+  async adminPing(req) { requireAdmin(req); return {}; },
+  /* 관리자 비밀번호 변경 → DB 에 저장 (모든 컴퓨터에 바로 적용) */
+  async changeAdminPassword(req) {
+    requireAdmin(req);
+    if (!checkAdminPassword(req.current)) fail("현재 비밀번호가 맞지 않습니다.");
+    const next = String(req.next || "");
+    if (next.length < 8) fail("새 비밀번호는 8자 이상으로 정해 주세요.");
+    const salt = "rw-" + crypto.randomBytes(6).toString("hex");
+    const cred = { salt, passwordHash: sha256(`${salt}::${next}`) };
+    await q(`INSERT INTO settings (key, value) VALUES ('admin_cred', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [JSON.stringify(cred)]);
+    ADMIN_CRED = cred;
+    console.log("[admin] password changed");
+    return { adminToken: adminToken(), salt: cred.salt, passwordHash: cred.passwordHash };
   },
   async adminData(req) {
     requireAdmin(req);
@@ -515,6 +540,7 @@ const server = http.createServer(async (req, res) => {
       try { weeks = (await savedWeeks()) || CONFIG_WEEKS; } catch (e) { console.error("[config] curriculum:", e.message); }
       const cfg = Object.assign({}, CFG);
       if (CFG.curriculum) cfg.curriculum = Object.assign({}, CFG.curriculum, { weeks: weeks.map(lockWeek) });
+      cfg.admin = { salt: ADMIN_CRED.salt, passwordHash: ADMIN_CRED.passwordHash };   // 관리자 화면에서 바꾼 비밀번호 반영
       const json = JSON.stringify(cfg, null, 1).split(String.fromCharCode(0x2028)).join("\\u2028").split(String.fromCharCode(0x2029)).join("\\u2029");
       res.writeHead(200, { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache" });
       return res.end(`/* Site settings — weekly lesson details are only sent to approved students. */\nwindow.SITE_CONFIG = ${json};\n`);

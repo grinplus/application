@@ -172,13 +172,15 @@
       if (Date.now() < lockedUntil) return show(`잠시 후 다시 시도하세요. (${Math.ceil((lockedUntil - Date.now()) / 1000)}초)`);
       const pw = input.value;
       if (!pw) return show("비밀번호를 입력해 주세요.");
-      const A = C.admin || {};
-      if (!A.passwordHash || hashPw(pw, A.salt) !== A.passwordHash) {
+      const wrong = (text) => {
         fails++;
         input.select();
         if (fails >= 5) { lockedUntil = Date.now() + 30000; fails = 0; return show("5번 틀렸습니다. 30초 뒤에 다시 시도하세요."); }
-        return show(`비밀번호가 맞지 않습니다. (${fails}/5)`);
-      }
+        return show(`${text || "비밀번호가 맞지 않습니다."} (${fails}/5)`);
+      };
+      // 체험 모드: 이 브라우저의 설정으로 확인 / 운영 모드: 서버(DB)에 저장된 비밀번호로만 확인
+      const A = C.admin || {};
+      if (!LIVE && (!A.passwordHash || hashPw(pw, A.salt) !== A.passwordHash)) return wrong();
       const sb = $("button[type=submit]", form);
       sb.disabled = true;
       api("adminLogin", { password: pw })
@@ -190,7 +192,7 @@
           close();
           openPanel();
         })
-        .catch((err) => { show(err.message); sb.disabled = false; });
+        .catch((err) => { sb.disabled = false; if (/비밀번호/.test(err.message)) wrong(err.message); else show(err.message); });
     });
   };
 
@@ -913,10 +915,27 @@ window.SITE_CONFIG = ${JSON.stringify(cfg, null, 2)};
       const msg = $(".form-msg", e.target);
       const bad = (t) => { msg.className = "form-msg show no"; msg.textContent = t; };
       const A = C.admin || {};
-      if (hashPw($("#pwNow").value, A.salt) !== A.passwordHash) return bad("현재 비밀번호가 맞지 않습니다.");
       const nw = $("#pwNew").value;
       if (nw.length < 8) return bad("새 비밀번호는 8자 이상으로 정해 주세요.");
       if (nw !== $("#pwNew2").value) return bad("새 비밀번호 확인이 일치하지 않습니다.");
+      // 운영 모드: 서버(DB)에 저장 → 어느 컴퓨터에서든 바로 새 비밀번호로 로그인
+      if (LIVE) {
+        const sb = $("button[type=submit]", e.target);
+        sb.disabled = true;
+        return api("changeAdminPassword", { adminToken, current: $("#pwNow").value, next: nw })
+          .then((res) => {
+            adminToken = res.adminToken;                 // 비밀번호가 바뀌면 다른 곳의 관리자 로그인은 풀림
+            saveAdmin(adminToken);
+            window.SITE_CONFIG.admin = { salt: res.salt, passwordHash: res.passwordHash };
+            syncBtn();
+            e.target.reset();
+            msg.className = "form-msg show ok";
+            msg.innerHTML = "비밀번호를 바꿨습니다. <b>서버에 저장되었으므로 어느 컴퓨터에서든 새 비밀번호로 로그인하면 됩니다.</b> 다른 곳에 열려 있던 관리자 로그인은 자동으로 풀립니다.";
+          })
+          .catch((err) => bad(err.message))
+          .finally(() => { sb.disabled = false; });
+      }
+      if (hashPw($("#pwNow").value, A.salt) !== A.passwordHash) return bad("현재 비밀번호가 맞지 않습니다.");
       const salt = "rw-" + Math.random().toString(36).slice(2, 10);
       const cfg = JSON.parse(JSON.stringify(window.SITE_CONFIG));
       cfg.admin = { salt, passwordHash: hashPw(nw, salt) };
@@ -928,8 +947,7 @@ window.SITE_CONFIG = ${JSON.stringify(cfg, null, 2)};
       window.SITE_CONFIG_OVERRIDDEN = true;
       e.target.reset();
       msg.className = "form-msg show ok";
-      msg.innerHTML = `비밀번호를 바꿨습니다. <b>config.js 를 내려받아</b> 사이트 파일을 바꿔야 모든 곳에 적용됩니다.` +
-        (LIVE ? `<br>운영 모드에서는 서버도 config.js 의 비밀번호로 확인하므로, 내려받은 config.js 를 사이트에 반영해야 새 비밀번호로 로그인할 수 있습니다.` : "");
+      msg.innerHTML = `비밀번호를 바꿨습니다. (체험 모드: 이 브라우저에만 적용됩니다. 모든 곳에 적용하려면 config.js 를 내려받아 사이트 파일을 바꿔 주세요.)`;
     });
   };
 
@@ -946,4 +964,14 @@ window.SITE_CONFIG = ${JSON.stringify(cfg, null, 2)};
   // 새로고침 전에 관리자 화면이 열려 있었으면 같은 탭으로 다시 열기
   const lastPanel = ss.get("panel");
   if (lastPanel && adminToken && !panel) openPanel(lastPanel);
+  // 운영 모드: 저장된 관리자 로그인이 아직 유효한지 서버에 확인 (비밀번호가 바뀌었으면 잠금)
+  if (LIVE && adminToken) {
+    api("adminPing", { adminToken }).catch((err) => {
+      if (!/관리자/.test(err.message)) return;          // 네트워크 문제 등은 그대로 둠
+      adminToken = null; clearAdmin();
+      if (panel) closePanel(true);
+      syncBtn();
+      toast("관리자 로그인이 만료되었습니다. 다시 로그인해 주세요.", "no");
+    });
+  }
 })();

@@ -18,6 +18,9 @@
       window.SITE_CONFIG_OVERRIDDEN = true;
       // 수정본을 저장한 뒤 config.js 파일이 바뀌었으면 알려 줌
       staleOverride = localStorage.getItem("rw_config_base") !== JSON.stringify(window.SITE_CONFIG_ORIGINAL);
+      // 운영 모드: 관리자 비밀번호·데이터 저장 주소는 항상 서버가 보낸 값 사용 (예전 수정본에 남은 비밀번호 무시)
+      const O = window.SITE_CONFIG_ORIGINAL;
+      if (O.backend && O.backend.url) { window.SITE_CONFIG.admin = O.admin; window.SITE_CONFIG.backend = O.backend; }
     }
   } catch (e) { /* 저장소를 쓸 수 없으면 config.js 그대로 */ }
 
