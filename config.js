@@ -11,7 +11,7 @@ window.SITE_CONFIG = {
   /* ---------- 기본 정보 ---------- */
   site: {
     title: "AI & English Language Education",
-    version: "v1.0.0",               // 상단 제목 오른쪽에 빨간 글씨로 표시 (비우면 숨김)
+    version: "v1.0.0",               // 상단 제목 오른쪽에 회색 글씨로 표시 (비우면 숨김)
     footer: "© 2026 읽기쓰기 프로그램 · AI & English Language Education"
   },
 

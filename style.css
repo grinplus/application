@@ -82,7 +82,7 @@ a { color: var(--sea-deep); }
   border: 1px solid var(--line);
 }
 .brand span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.brand-ver { flex: none; margin-left: -4px; font-size: .75rem; font-weight: 700; color: #e03131; letter-spacing: .02em; }
+.brand-ver { flex: none; margin-left: -4px; font-size: .75rem; font-weight: 500; color: var(--muted); letter-spacing: .02em; }
 
 .nav { display: flex; gap: 2px; }
 .nav a {

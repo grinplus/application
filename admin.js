@@ -200,7 +200,7 @@
     refreshSeconds: "결과 갱신 간격(초)", fields: "입력 항목", required: "필수", placeholder: "입력 예시", pattern: "형식 검사(정규식)",
     patternMessage: "형식 오류 안내", consent: "동의 문구", successMessage: "완료 메시지", pinLabel: "비밀번호 안내 문구",
     maxFileMB: "최대 파일 크기(MB)", accept: "허용 파일 형식", allowLate: "마감 후 제출 허용", body: "내용", important: "중요",
-    id: "이동할 섹션 id", menu: "메뉴 항목", version: "버전 (제목 옆 빨간 글씨)",
+    id: "이동할 섹션 id", menu: "메뉴 항목", version: "버전 (제목 옆 회색 글씨)",
     facts: "핵심 숫자", phases: "학습 단계", from: "시작 주차", to: "끝 주차", session: "수업 구성",
     minutes: "시간(분)", sessionTitle: "수업 구성 제목", assessment: "평가 항목", percent: "비율(%)",
     assessmentTitle: "평가 제목", outcomes: "학습 성과", outcomesTitle: "학습 성과 제목"
